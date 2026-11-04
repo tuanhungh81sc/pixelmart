@@ -35,7 +35,7 @@ giao hàng → Đã giao thành công).
 
 - Backend: Python Flask + SQLite, chạy trong container Docker, tự reset
   dữ liệu mỗi lần container khởi động.
-- Mật khẩu được hash (werkzeug), có 10 sản phẩm mẫu thuộc 7 danh mục.
+- Mật khẩu được hash (werkzeug), có 20 sản phẩm mẫu thuộc 7 danh mục.
 - Tài khoản demo: `tester` / `Password123!` (bạn cũng có thể tự đăng ký
   tài khoản mới qua `/register`).
 - Giao diện có banner khuyến mãi tự động chạy, khung xương (skeleton)
@@ -313,6 +313,97 @@ curl -s -b cookies.txt http://localhost:5000/api/cart
   logic, rồi tự đặt câu hỏi "ràng buộc này được thực thi nguyên tử hay
   không?" — đây là bước chỉ con người (hoặc công cụ chuyên biệt như
   Burp Turbo Intruder) mới làm được.
+
+## 5b. Audit bảo mật toàn bộ ứng dụng (để xác nhận chỉ có 1 lỗ hổng)
+
+Đã rà soát lại toàn bộ `app.py` và toàn bộ template (`templates/`) theo
+các nhóm lỗi phổ biến: SQL injection, XSS/SSTI, IDOR/BOLA, CSRF, mass
+assignment / thao túng giá, auth bypass, open redirect, information
+disclosure, path traversal, rate limiting. Kết quả:
+
+**Các mục đã kiểm tra và xác nhận AN TOÀN** (không phải lỗ hổng mới):
+
+- **SQL injection**: toàn bộ query dùng placeholder `?` (parameterized),
+  kể cả câu `LIKE` ở ô tìm kiếm trang chủ — phần nối chuỗi f-string chỉ
+  ghép các mệnh đề `WHERE` *tĩnh* (không chứa dữ liệu người dùng), dữ
+  liệu luôn đi qua `params`/placeholder.
+- **XSS**: không có `|safe`, `Markup(...)`, hay `render_template_string`
+  nào trong code; Jinja2 autoescape mặc định bật, nên review/comment,
+  tên sản phẩm, địa chỉ giao hàng, flash message... đều được escape khi
+  render.
+- **IDOR**: `orders/<id>` kiểm tra `order_row["user_id"] != current_user_id()`
+  → 404; giỏ hàng/review/profile luôn thao tác trên dữ liệu của chính
+  user đang đăng nhập (lấy qua session), không nhận object id của người
+  khác từ client.
+- **Thao túng giá**: `subtotal`, `discount`, `shipping_fee`,
+  `final_price` đều được **tính lại ở server** từ dữ liệu trong DB tại
+  thời điểm checkout — client không gửi được giá trị tiền nào trực
+  tiếp; `payment_method` được so khớp với whitelist `PAYMENT_METHODS`.
+  Con đường duy nhất để thao túng tổng tiền vẫn là race condition ở
+  coupon (mục đích của lab).
+- **Debug mode / thông tin rò rỉ**: `debug=False`, không bật Werkzeug
+  console; thông báo lỗi đăng nhập/đăng ký không tiết lộ chi tiết nội
+  bộ (stack trace, đường dẫn...).
+- **File/path traversal**: không có route tự phục vụ file theo tham số
+  người dùng; ảnh sản phẩm phục vụ qua cơ chế `static` mặc định của
+  Flask (đã có bảo vệ path traversal sẵn), tên file ảnh dựng từ
+  `product.id` lấy ra từ DB chứ không phải input thô.
+
+**2 vấn đề PHỤ phát hiện được (không liên quan race condition) — đã SỬA
+ngay trong lần cập nhật này** để đảm bảo đúng tinh thần "1 lỗ hổng duy
+nhất" của lab:
+
+1. **Open Redirect (CWE-601)** ở `GET/POST /login?next=...`: điều kiện
+   cũ `next_url.startswith("/")` tưởng là an toàn nhưng bị bypass bởi
+   URL dạng *protocol-relative* như `next=//evil.com` — chuỗi này VẪN
+   bắt đầu bằng `/` nhưng trình duyệt lại điều hướng sang host
+   `evil.com`. Đã sửa bằng hàm `is_safe_redirect_target()`, dùng
+   `urllib.parse.urlparse` để đảm bảo cả `scheme` và `netloc` đều rỗng
+   trước khi redirect (chặn cả `//evil.com` lẫn `/\evil.com`).
+2. **Username enumeration qua timing side-channel (CWE-208)** ở
+   `POST /login`: code cũ `user is None or not check_password_hash(...)`
+   sẽ **bỏ qua hoàn toàn bước hash** khi username không tồn tại (do
+   short-circuit của `or`), khiến phản hồi cho "username không tồn
+   tại" nhanh hơn rõ rệt so với "username đúng, mật khẩu sai" — kẻ tấn
+   công có thể dò được username hợp lệ bằng cách đo thời gian phản hồi.
+   Đã sửa để **luôn gọi `check_password_hash`** (dùng một hash giả cố
+   định, tạo một lần lúc khởi động, khi user không tồn tại), giúp thời
+   gian phản hồi gần như không đổi giữa 2 trường hợp.
+
+Cả hai đều là lỗi thật nhưng ở mức độ **phụ/harden** (không cho phép
+trực tiếp đọc/sửa dữ liệu người khác hay chiếm quyền), khác hẳn về bản
+chất với lỗ hổng race condition chính (CWE-367) — vốn cho phép **phá vỡ
+trực tiếp logic nghiệp vụ** (coupon dùng-một-lần bị cộng dồn vô hạn lần,
+dẫn đến giảm giá sai và có thể thanh toán gần như 0đ). Sau khi sửa, lab
+chỉ còn đúng **một lỗ hổng có thể khai thác theo kịch bản chính** —
+race condition ở coupon — các mục còn lại đều đã được đóng.
+
+**Các điểm "harden thêm nếu triển khai thật" nhưng KHÔNG sửa trong lab**
+(giữ nguyên để không làm lệch trọng tâm bài tập, và vì bản thân chúng
+không phải lỗ hổng khai thác được theo đúng nghĩa trong ngữ cảnh lab
+này):
+
+- Không có CSRF token trên các form/API thay đổi trạng thái. Rủi ro
+  thực tế được giảm đáng kể vì (a) mọi hành động thay đổi dữ liệu đều
+  là `POST` (không có GET nào làm thay đổi trạng thái, trừ `/logout`
+  — vô hại), và (b) cookie session của Flask không khai báo
+  `SameSite=None`, nên trình duyệt hiện đại áp dụng mặc định
+  `SameSite=Lax`, chặn cookie bị gửi kèm trong POST cross-site thông
+  thường. Nếu triển khai thật, vẫn nên thêm CSRF token (vd.
+  `flask-wtf`) làm lớp phòng thủ sâu (defense-in-depth).
+- Không có rate limiting / khoá tài khoản sau nhiều lần đăng nhập sai
+  → có thể bị brute-force mật khẩu nếu chạy thật trên Internet.
+- Không có header bảo mật như `X-Frame-Options`/`Content-Security-Policy`
+  → về lý thuyết có thể bị clickjacking (dẫn dụ người dùng click nhầm
+  qua iframe ẩn).
+- Trang đăng ký trả lỗi rõ ràng "Tên đăng nhập đã tồn tại" (409) — đây
+  là UX chuẩn cho form đăng ký, nhưng cũng đồng nghĩa có thể dò được
+  username đã đăng ký (register-time enumeration), khác với lỗi timing
+  ở `/login` đã nêu trên.
+- `app.secret_key` được random mỗi lần khởi động tiến trình (không lưu
+  cố định) — không phải lỗ hổng (ngược lại, tránh hardcode secret key),
+  nhưng có nghĩa là mọi session sẽ mất hiệu lực mỗi khi container
+  restart — là hành vi vận hành cần biết, không phải vấn đề bảo mật.
 
 ## 6. Hướng khắc phục (remediation) — để hiểu bản chất lỗi
 

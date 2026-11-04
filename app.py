@@ -22,11 +22,35 @@ import sqlite3
 import time
 import secrets
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, g, request, jsonify, render_template, session, redirect, url_for, flash
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
+
+# Hash gia (khong gan voi user nao) dung de SO SANH THOI GIAN khi username
+# khong ton tai, nham khong de lo thong tin "username co ton tai hay khong"
+# qua thoi gian phan hoi cua endpoint dang nhap (CWE-208 - Observable Timing
+# Discrepancy). Tao MOT LAN luc khoi dong app, khong phai hash thuc cua ai.
+_DUMMY_PASSWORD_HASH = generate_password_hash(secrets.token_hex(16))
+
+
+def is_safe_redirect_target(next_url):
+    """Chi cho phep redirect noi bo (cung host, duong dan tuong doi thuc su).
+
+    Mot kiem tra ngay tho nhu `next_url.startswith("/")` se bi qua mat boi
+    URL "protocol-relative" dang `//evil.com/...` - gia tri nay VAN bat dau
+    bang ky tu "/" nhung trinh duyet lai dieu huong sang host `evil.com`
+    (CWE-601 - Open Redirect). Dung urlparse de dam bao ca scheme va netloc
+    deu rong (tuc la khong tro sang host/scheme khac) truoc khi redirect.
+    """
+    if not next_url:
+        return False
+    if next_url.startswith("/\\") or next_url.startswith("//"):
+        return False
+    parsed = urlparse(next_url)
+    return parsed.scheme == "" and parsed.netloc == "" and next_url.startswith("/")
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "pixelmart.db")
 
@@ -60,6 +84,34 @@ SEED_PRODUCTS = [
      "Loa bluetooth 2.1, công suất 30W, bass mạnh, pin 12 giờ, chống nước IPX6.", "🔊", 20, 132),
     ("Lót chuột PixelMart X1 XL", "Phụ kiện", 180000,
      "Lót chuột cỡ lớn 900x400mm, bề mặt vải dệt chống trượt, viền may cẩn thận.", "🟫", 60, 405),
+    ("Bàn phím cơ PixelMart K1 Mini 60%", "Bàn phím", 1050000,
+     "Bàn phím cơ 61 phím bố cục 60%, switch Red êm tay, kết nối Type-C, "
+     "gọn nhẹ phù hợp mang theo laptop.", "⌨️", 33, 198),
+    ("Bàn phím giả cơ PixelMart K2 Office", "Bàn phím", 420000,
+     "Bàn phím giả cơ full-size cho văn phòng, chống nước nhẹ, đèn nền trắng.", "⌨️", 45, 267),
+    ("Chuột đứng PixelMart M3 Ergo", "Chuột", 760000,
+     "Chuột công thái học dạng đứng, giảm mỏi cổ tay, cảm biến 4000 DPI.", "🖱️", 20, 73),
+    ("Tai nghe gaming PixelMart H4 7.1", "Tai nghe", 1150000,
+     "Tai nghe gaming âm thanh ảo 7.1, mic tách rời khử ồn, đèn RGB, đệm tai mát.",
+     "🎧", 16, 121),
+    ("Webcam PixelMart C5 Pro 4K", "Webcam", 1390000,
+     "Webcam 4K 30fps, HDR, 2 mic stereo, kẹp xoay 360 độ, phù hợp livestream.",
+     "📷", 10, 58),
+    ("Màn hình PixelMart V6 24inch", "Màn hình", 2890000,
+     "Màn hình IPS 24 inch Full HD 100Hz, viền mỏng 3 cạnh, chân đế xoay gọn.",
+     "🖥️", 14, 76),
+    ("Màn hình cong PixelMart V7 32inch", "Màn hình", 7200000,
+     "Màn hình cong 32 inch QHD 165Hz, cong 1500R, HDR400, 2 cổng HDMI 2.1.",
+     "🖥️", 6, 19),
+    ("Loa vi tính PixelMart S7 2.0", "Loa", 420000,
+     "Loa vi tính 2.0 để bàn, công suất 10W, jack 3.5mm, đèn viền LED dịu mắt.",
+     "🔊", 28, 164),
+    ("Hub chuyển đổi PixelMart U1 Type-C 7in1", "Phụ kiện", 520000,
+     "Hub USB-C 7 trong 1: HDMI 4K, 3 cổng USB 3.0, đọc thẻ SD/TF, sạc PD 100W.",
+     "🔌", 35, 221),
+    ("Giá đỡ laptop PixelMart L1 nhôm", "Phụ kiện", 390000,
+     "Giá đỡ laptop hợp kim nhôm, 6 mức góc nghiêng, tản nhiệt tốt, gấp gọn.",
+     "💻", 42, 189),
 ]
 
 FREE_SHIPPING_THRESHOLD = 300000
@@ -344,13 +396,18 @@ def login():
     password = request.form.get("password", "")
     db = get_db()
     user = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
-    if user is None or not check_password_hash(user["password_hash"], password):
+    # Luon goi check_password_hash (voi hash gia neu khong tim thay user) de
+    # thoi gian phan hoi KHONG tiet lo username co ton tai hay khong.
+    password_ok = check_password_hash(
+        user["password_hash"] if user else _DUMMY_PASSWORD_HASH, password
+    )
+    if user is None or not password_ok:
         return render_template("login.html", error="Sai tài khoản hoặc mật khẩu."), 401
     session["user_id"] = user["id"]
     session["username"] = user["username"]
     get_or_create_cart(db, user["id"])
     next_url = request.args.get("next")
-    if next_url and next_url.startswith("/"):
+    if is_safe_redirect_target(next_url):
         return redirect(next_url)
     return redirect(url_for("index"))
 
