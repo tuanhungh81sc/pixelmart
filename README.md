@@ -43,6 +43,14 @@ giao hàng → Đã giao thành công).
   số lượng đã bán trên mỗi sản phẩm, avatar màu cho người đánh giá,
   trang 404/500 tuỳ biến, SEO meta tag cơ bản, favicon, và bố cục tự co
   giãn trên di động (responsive).
+- Giao diện sáng (light theme), tông xanh dương chủ đạo, dạng sàn TMĐT
+  thật (topbar khuyến mãi, navbar có ô tìm kiếm + icon giỏ hàng, subnav
+  danh mục, thẻ sản phẩm nền trắng bo góc đổ bóng, giá gạch ngang so
+  sánh, phân trang kiểu nút tròn, footer nhiều cột) — lấy cảm hứng
+  layout/màu từ một frontend TMĐT tham khảo, viết lại hoàn toàn bằng
+  CSS thuần (`static/style.css`), không dùng framework/build step. Mọi
+  route, tên trường form, id phần tử dùng trong JS (giỏ hàng, checkout)
+  đều giữ nguyên — chỉ thay đổi giao diện, không đổi logic.
 
 > **Lưu ý về phạm vi lỗ hổng:** toàn bộ các chức năng mới (đăng ký, trang
 > cá nhân, lịch sử đơn hàng, đánh giá sản phẩm...) đều được viết an toàn

@@ -1,26 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Đăng ký - PixelMart{% endblock %}
 {% block content %}
-<div style="max-width:380px;margin:40px auto;background:#1a1d24;padding:32px;border-radius:12px;">
-  <h1 style="font-size:22px;margin-bottom:4px;">Tạo tài khoản mới</h1>
-  <p style="color:#999;font-size:13px;margin-top:0;margin-bottom:20px;">Miễn phí, chỉ mất 30 giây</p>
-  {% if error %}<div style="color:#ff6b6b;font-size:13px;margin-bottom:12px;">{{ error }}</div>{% endif %}
-  <form method="POST" action="/register">
-    <input type="text" name="username" placeholder="Tên đăng nhập (3-30 ký tự)" required minlength="3" maxlength="30"
-           style="width:100%;padding:10px;margin-bottom:12px;border-radius:6px;border:1px solid #333;background:#0f1115;color:#fff;">
-    <input type="email" name="email" placeholder="Email" required
-           style="width:100%;padding:10px;margin-bottom:12px;border-radius:6px;border:1px solid #333;background:#0f1115;color:#fff;">
-    <input type="text" name="full_name" placeholder="Họ và tên"
-           style="width:100%;padding:10px;margin-bottom:12px;border-radius:6px;border:1px solid #333;background:#0f1115;color:#fff;">
-    <input type="password" name="password" placeholder="Mật khẩu (tối thiểu 8 ký tự)" required minlength="8"
-           style="width:100%;padding:10px;margin-bottom:12px;border-radius:6px;border:1px solid #333;background:#0f1115;color:#fff;">
-    <button type="submit"
-            style="width:100%;padding:10px;border:none;border-radius:6px;background:#4f7cff;color:#fff;font-weight:bold;cursor:pointer;">
-      Đăng ký
-    </button>
-  </form>
-  <div style="margin-top:10px;font-size:13px;">
-    Đã có tài khoản? <a href="/login" style="color:#4f7cff;">Đăng nhập</a>
+<div class="auth-wrap" style="max-width:400px;">
+  <div class="card">
+    <h1>Tạo tài khoản mới</h1>
+    <p class="sub">Miễn phí, chỉ mất 30 giây</p>
+    {% if error %}<div class="error-box">{{ error }}</div>{% endif %}
+    <form method="POST" action="/register">
+      <input type="text" name="username" placeholder="Tên đăng nhập (3-30 ký tự)" required minlength="3" maxlength="30" class="field-input">
+      <input type="email" name="email" placeholder="Email" required class="field-input">
+      <input type="text" name="full_name" placeholder="Họ và tên" class="field-input">
+      <input type="password" name="password" placeholder="Mật khẩu (tối thiểu 8 ký tự)" required minlength="8" class="field-input">
+      <button type="submit" class="btn btn-primary btn-block">
+        Đăng ký
+      </button>
+    </form>
+    <div class="auth-switch">
+      Đã có tài khoản? <a href="/login">Đăng nhập</a>
+    </div>
   </div>
 </div>
 {% endblock %}

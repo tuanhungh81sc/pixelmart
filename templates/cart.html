@@ -1,19 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Giỏ hàng - PixelMart{% endblock %}
-{% block extra_head %}
-<style>
-  .cart-grid { display:grid; grid-template-columns:2fr 1fr; gap:24px; }
-  @media (max-width: 720px) {
-    .cart-grid { grid-template-columns:1fr; }
-  }
-</style>
-{% endblock %}
 {% block content %}
 
-<h1 style="font-size:22px; margin-bottom:20px;">Giỏ hàng của bạn</h1>
+<h1 class="page-title">Giỏ hàng của bạn</h1>
 
 <div class="cart-grid">
-  <div id="cart-items-wrap" style="background:#1a1d24; border-radius:10px; padding:18px;">
+  <div id="cart-items-wrap" class="card">
     <div id="cart-items">
       <div class="skeleton-line" style="height:60px; margin-bottom:10px;"></div>
       <div class="skeleton-line" style="height:60px; margin-bottom:10px;"></div>
@@ -21,81 +13,66 @@
     </div>
   </div>
 
-  <div style="background:#1a1d24; border-radius:10px; padding:18px; align-self:start;">
-    <button id="coupon-toggle-btn" onclick="toggleCouponList()"
-            style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:10px 12px; margin-bottom:12px; border:1px dashed #4f7cff; border-radius:8px; background:#141722; color:#4f7cff; font-weight:bold; cursor:pointer; font-size:13px;">
+  <div class="card" style="align-self:start;">
+    <button id="coupon-toggle-btn" onclick="toggleCouponList()" class="coupon-toggle-btn">
       <span>🎟️ Chọn mã giảm giá</span>
       <span id="coupon-toggle-arrow">▾</span>
     </button>
 
     <div id="coupon-list" style="display:none; margin-bottom:16px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; background:#141722; border:1px solid #2a2e38; border-radius:8px; padding:12px; margin-bottom:8px;">
+      <div class="coupon-item">
         <div>
-          <div style="font-weight:bold; font-size:13px; color:#fff;">SALE20</div>
-          <div style="font-size:12px; color:#999;">Giảm 20% cho đơn hàng</div>
+          <div class="code">SALE20</div>
+          <div class="desc">Giảm 20% cho đơn hàng</div>
         </div>
-        <button onclick="applyCoupon('SALE20')"
-                style="padding:7px 14px; border:none; border-radius:6px; background:#4f7cff; color:#fff; font-size:12px; font-weight:bold; cursor:pointer; white-space:nowrap;">
+        <button onclick="applyCoupon('SALE20')" class="btn btn-primary" style="padding:7px 14px; font-size:12px;">
           Dùng mã
         </button>
       </div>
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; background:#141722; border:1px solid #2a2e38; border-radius:8px; padding:12px; margin-bottom:8px; opacity:.55;">
+      <div class="coupon-item disabled">
         <div>
-          <div style="font-weight:bold; font-size:13px; color:#fff;">FREESHIP50</div>
-          <div style="font-size:12px; color:#999;">Miễn phí vận chuyển</div>
+          <div class="code">FREESHIP50</div>
+          <div class="desc">Miễn phí vận chuyển</div>
         </div>
-        <span style="font-size:11px; color:#777; white-space:nowrap;">Sắp ra mắt</span>
+        <span class="text-sm muted" style="white-space:nowrap;">Sắp ra mắt</span>
       </div>
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; background:#141722; border:1px solid #2a2e38; border-radius:8px; padding:12px; opacity:.55;">
+      <div class="coupon-item disabled">
         <div>
-          <div style="font-weight:bold; font-size:13px; color:#fff;">WELCOME10</div>
-          <div style="font-size:12px; color:#999;">Giảm 10% cho khách mới</div>
+          <div class="code">WELCOME10</div>
+          <div class="desc">Giảm 10% cho khách mới</div>
         </div>
-        <span style="font-size:11px; color:#777; white-space:nowrap;">Hết lượt dùng</span>
+        <span class="text-sm muted" style="white-space:nowrap;">Hết lượt dùng</span>
       </div>
     </div>
 
     <div style="margin-bottom:16px;">
-      <div style="font-size:12px; color:#999; margin-bottom:8px;">Phương thức thanh toán</div>
-      <label style="display:flex; align-items:center; gap:8px; font-size:13px; padding:8px 0; cursor:pointer;">
+      <div class="text-sm muted" style="margin-bottom:8px;">Phương thức thanh toán</div>
+      <label class="payment-option">
         <input type="radio" name="payment_method" value="cod" checked>
         Thanh toán khi nhận hàng (COD)
       </label>
-      <label style="display:flex; align-items:center; gap:8px; font-size:13px; padding:8px 0; cursor:pointer;">
+      <label class="payment-option">
         <input type="radio" name="payment_method" value="bank_transfer">
         Chuyển khoản ngân hàng
       </label>
     </div>
 
-    <div style="font-size:13px;">
-      <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Tạm tính</span><span id="subtotal">0đ</span></div>
-      <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Giảm giá (<span id="coupon-uses">0</span> lần)</span><span id="discount">0đ</span></div>
-      <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+    <div>
+      <div class="summary-row"><span>Tạm tính</span><span id="subtotal">0đ</span></div>
+      <div class="summary-row"><span>Giảm giá (<span id="coupon-uses">0</span> lần)</span><span id="discount">0đ</span></div>
+      <div class="summary-row">
         <span>Phí vận chuyển</span>
         <span id="shipping-fee">0đ</span>
       </div>
-      <div id="free-ship-hint" style="font-size:11px; color:#2fbf71; margin-bottom:6px; display:none;">🎉 Đơn hàng của bạn được miễn phí vận chuyển</div>
-      <div style="display:flex; justify-content:space-between; font-size:16px; font-weight:bold; color:#4f7cff; border-top:1px solid #2a2e38; padding-top:10px; margin-top:6px;"><span>Thành tiền</span><span id="final-price">0đ</span></div>
+      <div id="free-ship-hint" class="hint-success">🎉 Đơn hàng của bạn được miễn phí vận chuyển</div>
+      <div class="summary-row total"><span>Thành tiền</span><span id="final-price">0đ</span></div>
     </div>
-    <button onclick="checkout()" style="width:100%; margin-top:14px; padding:10px; border:none; border-radius:6px; background:#2fbf71; color:#06130c; font-weight:bold; cursor:pointer;">
+    <button onclick="checkout()" class="btn btn-success btn-block" style="margin-top:14px;">
       Thanh toán
     </button>
     <div id="msg" style="font-size:12px; margin-top:10px; min-height:16px;"></div>
   </div>
 </div>
-
-<style>
-  .skeleton-line {
-    background: linear-gradient(90deg, #1f232c 25%, #272c37 37%, #1f232c 63%);
-    background-size: 400% 100%;
-    border-radius: 8px;
-    animation: skeleton-shine 1.4s ease infinite;
-  }
-  @keyframes skeleton-shine {
-    0% { background-position: 100% 50%; }
-    100% { background-position: 0 50%; }
-  }
-</style>
 
 <script>
 let freeShipThreshold = 300000;
@@ -107,20 +84,20 @@ async function refreshCart() {
   const itemsEl = document.getElementById('cart-items');
   itemsEl.innerHTML = data.items.length
     ? data.items.map(i => `
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #2a2e38;">
+        <div class="cart-item-row">
           <div style="display:flex; gap:12px; align-items:center;">
             <span style="font-size:26px;">${i.img || '📦'}</span>
             <div>
               <div style="font-size:14px;">${i.name}</div>
-              <div style="font-size:12px; color:#777;">${i.unit_price.toLocaleString()}đ x ${i.quantity}</div>
+              <div style="font-size:12px; color:var(--text-muted);">${i.unit_price.toLocaleString()}đ x ${i.quantity}</div>
             </div>
           </div>
           <div style="display:flex; gap:14px; align-items:center;">
-            <span style="font-weight:bold;">${i.line_total.toLocaleString()}đ</span>
-            <button onclick="removeItem(${i.product_id})" style="background:none; border:none; color:#ff6b6b; cursor:pointer; font-size:13px;">Xoá</button>
+            <span style="font-weight:700; color:var(--primary);">${i.line_total.toLocaleString()}đ</span>
+            <button onclick="removeItem(${i.product_id})" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:13px;">Xoá</button>
           </div>
         </div>`).join('')
-    : '<div style="color:#777; padding:20px 0; text-align:center;">Giỏ hàng trống. <a href="/" style="color:#4f7cff;">Tiếp tục mua sắm</a></div>';
+    : '<div style="color:var(--text-muted); padding:20px 0; text-align:center;">Giỏ hàng trống. <a href="/" style="color:var(--primary);">Tiếp tục mua sắm</a></div>';
   document.getElementById('subtotal').innerText = data.subtotal.toLocaleString() + 'đ';
   document.getElementById('discount').innerText = data.discount.toLocaleString() + 'đ';
   document.getElementById('coupon-uses').innerText = data.coupon_uses;
@@ -132,7 +109,7 @@ async function refreshCart() {
 function showMsg(text, ok) {
   const el = document.getElementById('msg');
   el.innerText = text;
-  el.style.color = ok ? '#2fbf71' : '#ff6b6b';
+  el.style.color = ok ? 'var(--success)' : 'var(--danger)';
 }
 
 async function removeItem(productId) {

@@ -1,19 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Giới thiệu - PixelMart{% endblock %}
-{% block extra_head %}
-<style>
-  .about-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; }
-  @media (max-width: 720px) {
-    .about-grid { grid-template-columns:1fr; }
-  }
-</style>
-{% endblock %}
 {% block content %}
-<div style="max-width:720px; margin:0 auto;">
-  <h1 style="font-size:24px; margin-bottom:6px;">Về PixelMart</h1>
-  <p style="color:#777; font-size:13px; margin-bottom:28px;">Lab nội bộ — nội dung bên dưới chỉ mang tính minh hoạ.</p>
+<div class="info-wrap">
+  <h1>Về PixelMart</h1>
+  <p class="lead">Lab nội bộ — nội dung bên dưới chỉ mang tính minh hoạ.</p>
 
-  <div style="background:#1a1d24; border-radius:12px; padding:24px; margin-bottom:18px; line-height:1.7; color:#ccc; font-size:14px;">
+  <div class="card">
     <p>PixelMart được thành lập với sứ mệnh mang đến linh kiện máy tính
     chất lượng với mức giá hợp lý cho người dùng Việt Nam. Từ một cửa
     hàng nhỏ, chúng tôi đã phát triển thành nền tảng với hàng nghìn sản
@@ -22,21 +14,21 @@
     dễ dàng và hỗ trợ khách hàng tận tâm 24/7.</p>
   </div>
 
-  <div class="about-grid">
-    <div style="background:#1a1d24; border-radius:10px; padding:18px; text-align:center;">
+  <div class="about-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:14px;">
+    <div class="card" style="text-align:center;">
       <div style="font-size:26px; margin-bottom:6px;">🚚</div>
-      <div style="font-weight:bold; font-size:13px;">Giao hàng nhanh</div>
-      <div style="color:#777; font-size:12px; margin-top:4px;">Toàn quốc 1-3 ngày</div>
+      <div style="font-weight:700; font-size:13px;">Giao hàng nhanh</div>
+      <div class="muted text-sm" style="margin-top:4px;">Toàn quốc 1-3 ngày</div>
     </div>
-    <div style="background:#1a1d24; border-radius:10px; padding:18px; text-align:center;">
+    <div class="card" style="text-align:center;">
       <div style="font-size:26px; margin-bottom:6px;">🛡️</div>
-      <div style="font-weight:bold; font-size:13px;">Bảo hành chính hãng</div>
-      <div style="color:#777; font-size:12px; margin-top:4px;">Lên đến 12 tháng</div>
+      <div style="font-weight:700; font-size:13px;">Bảo hành chính hãng</div>
+      <div class="muted text-sm" style="margin-top:4px;">Lên đến 12 tháng</div>
     </div>
-    <div style="background:#1a1d24; border-radius:10px; padding:18px; text-align:center;">
+    <div class="card" style="text-align:center;">
       <div style="font-size:26px; margin-bottom:6px;">↩️</div>
-      <div style="font-weight:bold; font-size:13px;">Đổi trả dễ dàng</div>
-      <div style="color:#777; font-size:12px; margin-top:4px;">Trong vòng 7 ngày</div>
+      <div style="font-weight:700; font-size:13px;">Đổi trả dễ dàng</div>
+      <div class="muted text-sm" style="margin-top:4px;">Trong vòng 7 ngày</div>
     </div>
   </div>
 </div>

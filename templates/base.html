@@ -11,54 +11,56 @@
 <meta property="og:description" content="{% block og_description %}Cửa hàng công nghệ trực tuyến PixelMart{% endblock %}">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛒</text></svg>">
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; background:#0f1115; color:#e6e6e6; margin:0; }
-  a { color:inherit; }
-  header { display:flex; justify-content:space-between; align-items:center; padding:14px 32px; background:#1a1d24; position:sticky; top:0; z-index:10; flex-wrap:wrap; gap:10px; }
-  header .brand { font-size:20px; font-weight:bold; text-decoration:none; }
-  nav { display:flex; gap:18px; align-items:center; font-size:14px; }
-  nav a { text-decoration:none; color:#ccc; }
-  nav a:hover { color:#fff; }
-  nav .cart-link { background:#2a2e38; padding:6px 12px; border-radius:20px; }
-  main { max-width:1100px; margin:28px auto; padding:0 16px; }
-  .flash { max-width:1100px; margin:16px auto 0; padding:0 16px; }
-  .flash-msg { padding:10px 14px; border-radius:8px; margin-bottom:8px; font-size:14px; }
-  .flash-msg.success { background:#163a26; color:#7ee6a4; }
-  .flash-msg.error { background:#3a1620; color:#ff9eae; }
-  footer { text-align:center; color:#555; font-size:12px; padding:30px 0; }
-  footer .footer-links { margin-bottom:10px; display:flex; gap:18px; justify-content:center; flex-wrap:wrap; }
-  footer .footer-links a { color:#888; text-decoration:none; }
-  footer .footer-links a:hover { color:#ccc; }
-  input, select, textarea { font-family: inherit; }
-  button { font-family: inherit; }
-
-  @media (max-width: 720px) {
-    header { padding:12px 16px; justify-content:center; }
-    header .brand { font-size:18px; }
-    nav { font-size:13px; gap:12px; justify-content:center; }
-    main { margin:16px auto; padding:0 12px; }
-    h1 { font-size:19px !important; }
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 {% block extra_head %}{% endblock %}
 </head>
 <body>
-<header>
-  <a class="brand" href="/">🛒 PixelMart</a>
-  <nav>
-    {% if logged_in %}
-      <a href="/">Sản phẩm</a>
-      <a href="/orders">Đơn hàng</a>
-      <a href="/profile">Tài khoản ({{ username }})</a>
-      <a class="cart-link" href="/cart">Giỏ hàng ({{ cart_count }})</a>
-      <a href="/logout">Đăng xuất</a>
-    {% else %}
-      <a href="/login">Đăng nhập</a>
-      <a href="/register">Đăng ký</a>
-    {% endif %}
-  </nav>
-</header>
+
+<div class="topbar">
+  <div class="container">
+    <div>🎉 Giảm đến 20% cho đơn hàng đầu tiên — nhập mã <strong>SALE20</strong> tại giỏ hàng</div>
+    <div class="topbar-links">
+      <span>🚚 Miễn phí ship từ {{ "{:,}".format(nav_free_shipping_threshold) }}đ</span>
+      <span>📞 Hotline: 1900 0000</span>
+    </div>
+  </div>
+</div>
+
+<nav class="navbar">
+  <div class="container">
+    <a class="brand" href="/">
+      <span class="brand-icon">🛒</span>
+      <span>PixelMart</span>
+    </a>
+
+    <form class="navbar-search" method="GET" action="/">
+      <input type="text" name="q" placeholder="Nhập tên sản phẩm cần tìm...">
+      <button type="submit" title="Tìm kiếm">🔍</button>
+    </form>
+
+    <div class="navbar-right">
+      {% if logged_in %}
+        <a href="/orders"><span class="nav-icon">📦</span><span class="label">Đơn hàng</span></a>
+        <a href="/profile"><span class="nav-icon">👤</span><span class="label">{{ username }}</span></a>
+        <a class="cart-pill" href="/cart"><span class="nav-icon">🛒</span><span class="label">Giỏ hàng ({{ cart_count }})</span></a>
+        <a href="/logout"><span class="label">Đăng xuất</span></a>
+      {% else %}
+        <a href="/login"><span class="nav-icon">👤</span><span class="label">Đăng nhập</span></a>
+        <a href="/register"><span class="label">Đăng ký</span></a>
+        <a class="cart-pill" href="/cart"><span class="nav-icon">🛒</span><span class="label">Giỏ hàng</span></a>
+      {% endif %}
+    </div>
+  </div>
+</nav>
+
+<div class="subnav">
+  <div class="container">
+    <a href="/">Tất cả sản phẩm</a>
+    {% for c in nav_categories %}
+      <a href="/?category={{ c }}">{{ c }}</a>
+    {% endfor %}
+  </div>
+</div>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
@@ -75,12 +77,36 @@
 </main>
 
 <footer>
-  <div class="footer-links">
-    <a href="/about">Giới thiệu</a>
-    <a href="/policy">Chính sách đổi trả & bảo hành</a>
-    <a href="/contact">Liên hệ</a>
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-col">
+        <h4>Hỗ trợ khách hàng</h4>
+        <a href="/contact">Trung tâm hỗ trợ</a>
+        <a href="/orders">Theo dõi đơn hàng</a>
+        <a href="/profile">Tài khoản của bạn</a>
+        <a href="/contact">Liên hệ chúng tôi</a>
+      </div>
+      <div class="footer-col">
+        <h4>Về PixelMart</h4>
+        <a href="/about">Giới thiệu</a>
+        <a href="/policy">Chính sách đổi trả & bảo hành</a>
+        <a href="/contact">Liên hệ</a>
+      </div>
+      <div class="footer-col">
+        <h4>Chính sách</h4>
+        <a href="/policy">Vận chuyển & giao nhận</a>
+        <a href="/policy">Bảo hành</a>
+        <a href="/policy">Đổi trả</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span class="brand-icon">🛒</span>
+      <strong>PixelMart</strong>
+    </div>
+    <div class="footer-note">
+      PixelMart Lab — chỉ dùng cho mục đích học tập bảo mật web, không chứa dữ liệu thật.
+    </div>
   </div>
-  PixelMart Lab — chỉ dùng cho mục đích học tập bảo mật web, không chứa dữ liệu thật.
 </footer>
 </body>
 </html>

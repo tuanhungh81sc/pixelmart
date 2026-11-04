@@ -271,7 +271,13 @@ def cart_item_count(db, user_id):
 
 @app.context_processor
 def inject_globals():
-    ctx = {"cart_count": 0, "logged_in": False, "username": None}
+    # Purely cosmetic globals for the shared layout (subnav category links,
+    # free-shipping hint in footer/topbar) — read-only constants, no DB write,
+    # no effect on any route's logic or the lab's single vulnerability.
+    ctx = {
+        "cart_count": 0, "logged_in": False, "username": None,
+        "nav_categories": CATEGORIES, "nav_free_shipping_threshold": FREE_SHIPPING_THRESHOLD,
+    }
     if current_user_id():
         db = get_db()
         ctx["cart_count"] = cart_item_count(db, current_user_id())

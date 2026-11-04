@@ -2,25 +2,25 @@
 {% block title %}Đơn hàng - PixelMart{% endblock %}
 {% block content %}
 
-<h1 style="font-size:22px; margin-bottom:20px;">Lịch sử đơn hàng</h1>
+<h1 class="page-title">Lịch sử đơn hàng</h1>
 
 {% if not orders %}
-  <p style="color:#777;">Bạn chưa có đơn hàng nào. <a href="/" style="color:#4f7cff;">Mua sắm ngay</a></p>
+  <p class="muted">Bạn chưa có đơn hàng nào. <a href="/" style="color:var(--primary);">Mua sắm ngay</a></p>
 {% endif %}
 
 <div style="display:flex; flex-direction:column; gap:12px;">
   {% for o in orders %}
-  <a href="/orders/{{ o.id }}" style="text-decoration:none; color:inherit; background:#1a1d24; border-radius:10px; padding:16px 18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+  <a href="/orders/{{ o.id }}" class="order-row">
     <div>
-      <div style="font-size:14px; font-weight:bold; margin-bottom:4px;">Đơn hàng #{{ o.id }}</div>
-      <div style="font-size:12px; color:#777;">{{ o.created_at }}</div>
+      <div style="font-size:14px; font-weight:700; margin-bottom:4px;">Đơn hàng #{{ o.id }}</div>
+      <div class="text-sm muted">{{ o.created_at }}</div>
       <div style="margin-top:6px;">
-        <span style="font-size:11px; color:{{ o.status_color }}; background:{{ o.status_color }}22; padding:3px 9px; border-radius:12px;">{{ o.status }}</span>
+        <span class="status-pill" style="color:{{ o.status_color }}; background:{{ o.status_color }}22;">{{ o.status }}</span>
       </div>
     </div>
     <div style="text-align:right;">
-      <div style="color:#4f7cff; font-weight:bold;">{{ "{:,}".format(o.final_price) }}đ</div>
-      {% if o.discount > 0 %}<div style="font-size:12px; color:#2fbf71;">Đã giảm {{ "{:,}".format(o.discount) }}đ</div>{% endif %}
+      <div style="color:var(--primary); font-weight:700;">{{ "{:,}".format(o.final_price) }}đ</div>
+      {% if o.discount > 0 %}<div class="text-sm" style="color:var(--success);">Đã giảm {{ "{:,}".format(o.discount) }}đ</div>{% endif %}
     </div>
   </a>
   {% endfor %}

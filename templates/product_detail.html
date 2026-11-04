@@ -2,68 +2,55 @@
 {% block title %}{{ product.name }} - PixelMart{% endblock %}
 {% block meta_description %}{{ product.name }} - {{ product.category }} - {{ "{:,}".format(product.price) }}đ tại PixelMart{% endblock %}
 {% block og_title %}{{ product.name }} - PixelMart{% endblock %}
-{% block extra_head %}
-<style>
-  .pd-grid { display:grid; grid-template-columns:1fr 1.4fr; gap:36px; margin-bottom:40px; }
-  @media (max-width: 720px) {
-    .pd-grid { grid-template-columns:1fr; }
-  }
-</style>
-{% endblock %}
 {% block content %}
 
-<div style="margin-bottom:16px; font-size:13px; color:#777;">
-  <a href="/" style="color:#777;">Sản phẩm</a> / <a href="/?category={{ product.category }}" style="color:#777;">{{ product.category }}</a> / {{ product.name }}
+<div class="pd-breadcrumb">
+  <a href="/">Sản phẩm</a> / <a href="/?category={{ product.category }}">{{ product.category }}</a> / {{ product.name }}
 </div>
 
 <div class="pd-grid">
-  <div style="background:#1a1d24; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:120px; min-height:280px;">
+  <div class="pd-image">
     {{ product.img }}
   </div>
   <div>
-    <div style="font-size:12px; color:#777; margin-bottom:6px;">{{ product.category }}</div>
+    <div class="cat" style="margin-bottom:6px;">{{ product.category }}</div>
     <h1 style="margin:0 0 10px 0; font-size:24px;">{{ product.name }}</h1>
     {% if avg_rating %}
-      <div style="color:#f5c518; margin-bottom:10px;">{{ "★" * (avg_rating|round|int) }}{{ "☆" * (5 - avg_rating|round|int) }} <span style="color:#999; font-size:13px;">({{ avg_rating }}/5, {{ reviews|length }} đánh giá)</span></div>
+      <div class="pd-stars">{{ "★" * (avg_rating|round|int) }}{{ "☆" * (5 - avg_rating|round|int) }} <span class="muted text-sm">({{ avg_rating }}/5, {{ reviews|length }} đánh giá)</span></div>
     {% else %}
-      <div style="color:#666; font-size:13px; margin-bottom:10px;">Chưa có đánh giá</div>
+      <div class="muted text-sm" style="margin-bottom:10px;">Chưa có đánh giá</div>
     {% endif %}
-    <div style="font-size:26px; color:#4f7cff; font-weight:bold; margin-bottom:16px;">{{ "{:,}".format(product.price) }}đ</div>
-    <p style="color:#ccc; line-height:1.6; margin-bottom:20px;">{{ product.description }}</p>
-    <div style="font-size:13px; color:#999; margin-bottom:16px;">Còn lại: {{ product.stock }} sản phẩm · Đã bán {{ product.sold_count }}</div>
+    <div class="pd-price">
+      {{ "{:,}".format(product.price) }}đ
+      <span class="price-old">{{ "{:,}".format((product.price * 1.15) | round | int) }}đ</span>
+    </div>
+    <p class="muted" style="line-height:1.6; margin-bottom:20px; color:#444a5e;">{{ product.description }}</p>
+    <div class="text-sm muted" style="margin-bottom:16px;">Còn lại: {{ product.stock }} sản phẩm · Đã bán {{ product.sold_count }}</div>
 
-    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
-      <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:#ccc; background:#141722; padding:7px 12px; border-radius:20px;">
-        🚚 Miễn phí ship từ {{ "{:,}".format(free_shipping_threshold) }}đ
-      </div>
-      <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:#ccc; background:#141722; padding:7px 12px; border-radius:20px;">
-        🛡️ Bảo hành 12 tháng
-      </div>
-      <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:#ccc; background:#141722; padding:7px 12px; border-radius:20px;">
-        ↩️ Đổi trả trong 7 ngày
-      </div>
+    <div class="trust-row">
+      <div class="trust-badge">🚚 Miễn phí ship từ {{ "{:,}".format(free_shipping_threshold) }}đ</div>
+      <div class="trust-badge">🛡️ Bảo hành 12 tháng</div>
+      <div class="trust-badge">↩️ Đổi trả trong 7 ngày</div>
     </div>
 
     <div style="display:flex; gap:10px; align-items:center;">
-      <input type="number" id="qty" value="1" min="1" max="20"
-             style="width:70px; padding:10px; border-radius:8px; border:1px solid #333; background:#0f1115; color:#fff;">
-      <button onclick="addToCart({{ product.id }})" id="add-btn"
-              style="padding:10px 24px; border:none; border-radius:8px; background:#4f7cff; color:#fff; font-weight:bold; cursor:pointer;">
+      <input type="number" id="qty" value="1" min="1" max="20" class="field-input" style="width:80px; margin-bottom:0;">
+      <button onclick="addToCart({{ product.id }})" id="add-btn" class="btn btn-primary">
         Thêm vào giỏ
       </button>
     </div>
-    <div id="add-msg" style="margin-top:10px; font-size:13px; color:#2fbf71;"></div>
+    <div id="add-msg" style="margin-top:10px; font-size:13px; color:var(--success);"></div>
   </div>
 </div>
 
 {% if related %}
 <h2 style="font-size:16px; margin-bottom:14px;">Sản phẩm cùng danh mục</h2>
-<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:14px; margin-bottom:40px;">
+<div class="related-grid">
   {% for p in related %}
-  <a href="/product/{{ p.id }}" style="text-decoration:none; background:#1a1d24; border-radius:10px; padding:14px; display:block;">
-    <div style="font-size:28px; margin-bottom:6px;">{{ p.img }}</div>
-    <div style="font-size:13px; color:#fff; margin-bottom:4px;">{{ p.name }}</div>
-    <div style="color:#4f7cff; font-weight:bold; font-size:13px;">{{ "{:,}".format(p.price) }}đ</div>
+  <a href="/product/{{ p.id }}" class="related-card">
+    <div class="thumb-sm">{{ p.img }}</div>
+    <div class="text-sm" style="margin-bottom:4px;">{{ p.name }}</div>
+    <div class="price" style="font-size:13px;">{{ "{:,}".format(p.price) }}đ</div>
   </a>
   {% endfor %}
 </div>
@@ -72,39 +59,38 @@
 <h2 style="font-size:16px; margin-bottom:14px;">Đánh giá sản phẩm</h2>
 
 {% if logged_in %}
-<form method="POST" action="/product/{{ product.id }}/review" style="background:#1a1d24; padding:18px; border-radius:10px; margin-bottom:20px;">
-  <div style="margin-bottom:10px; font-size:13px; color:#999;">Đánh giá của bạn</div>
-  <select name="rating" style="padding:8px; border-radius:6px; border:1px solid #333; background:#0f1115; color:#fff; margin-bottom:10px;">
+<form method="POST" action="/product/{{ product.id }}/review" class="card" style="margin-bottom:20px;">
+  <div class="text-sm muted" style="margin-bottom:10px;">Đánh giá của bạn</div>
+  <select name="rating" class="field-input" style="width:auto;">
     <option value="5">★★★★★ (5 sao)</option>
     <option value="4">★★★★☆ (4 sao)</option>
     <option value="3">★★★☆☆ (3 sao)</option>
     <option value="2">★★☆☆☆ (2 sao)</option>
     <option value="1">★☆☆☆☆ (1 sao)</option>
   </select>
-  <textarea name="comment" placeholder="Viết nhận xét của bạn..." maxlength="500" rows="3"
-            style="width:100%; padding:10px; border-radius:6px; border:1px solid #333; background:#0f1115; color:#fff; margin-bottom:10px; resize:vertical;"></textarea>
-  <button type="submit" style="padding:8px 18px; border:none; border-radius:6px; background:#4f7cff; color:#fff; cursor:pointer;">Gửi đánh giá</button>
+  <textarea name="comment" placeholder="Viết nhận xét của bạn..." maxlength="500" rows="3" class="field-input" style="resize:vertical;"></textarea>
+  <button type="submit" class="btn btn-primary">Gửi đánh giá</button>
 </form>
 {% else %}
-<p style="color:#777; font-size:13px; margin-bottom:20px;"><a href="/login" style="color:#4f7cff;">Đăng nhập</a> để viết đánh giá.</p>
+<p class="muted text-sm" style="margin-bottom:20px;"><a href="/login" style="color:var(--primary);">Đăng nhập</a> để viết đánh giá.</p>
 {% endif %}
 
 <div style="display:flex; flex-direction:column; gap:12px;">
   {% for r in reviews %}
-  <div style="background:#1a1d24; padding:14px 16px; border-radius:10px; display:flex; gap:12px;">
-    <div style="flex-shrink:0; width:34px; height:34px; border-radius:50%; background:{{ r.avatar_color }}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">
+  <div class="review-item">
+    <div class="avatar-circle" style="background:{{ r.avatar_color }};">
       {{ r.initial }}
     </div>
     <div style="flex:1;">
       <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-        <span style="font-weight:bold; font-size:13px;">{{ r.username }}</span>
-        <span style="color:#f5c518; font-size:13px;">{{ "★" * r.rating }}{{ "☆" * (5 - r.rating) }}</span>
+        <span style="font-weight:700; font-size:13px;">{{ r.username }}</span>
+        <span style="color:#f5a623; font-size:13px;">{{ "★" * r.rating }}{{ "☆" * (5 - r.rating) }}</span>
       </div>
-      {% if r.comment %}<div style="color:#ccc; font-size:13px;">{{ r.comment }}</div>{% endif %}
+      {% if r.comment %}<div class="text-sm" style="color:#444a5e;">{{ r.comment }}</div>{% endif %}
     </div>
   </div>
   {% else %}
-  <p style="color:#666; font-size:13px;">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
+  <p class="muted text-sm">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
   {% endfor %}
 </div>
 
@@ -124,7 +110,7 @@ async function addToCart(productId) {
     setTimeout(() => location.reload(), 600);
   } else {
     const data = await res.json();
-    document.getElementById('add-msg').style.color = '#ff6b6b';
+    document.getElementById('add-msg').style.color = 'var(--danger)';
     document.getElementById('add-msg').innerText = data.error || 'Bạn cần đăng nhập trước.';
   }
 }
