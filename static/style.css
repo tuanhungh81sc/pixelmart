@@ -460,3 +460,4 @@ footer { background: #fff; border-top: 1px solid var(--border); margin-top: 40px
 .verify-pill.no { color: var(--text-muted); background: #eef0fa; }
 .admin-note-input { width: 180px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 12.5px; }
 .btn-xs { padding: 6px 12px; font-size: 12.5px; }
+.admin-coupon-code { font-weight: 700; font-size: 16px; color: var(--text); letter-spacing: .03em; background: #eef0fa; padding: 4px 10px; border-radius: 6px; }

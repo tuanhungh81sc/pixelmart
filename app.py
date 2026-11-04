@@ -1,25 +1,37 @@
 """
-PixelMart - Vulnerable Lab Application (v3 - full shop + admin panel)
+PixelMart - Vulnerable Lab Application (v4 - chained privesc + race condition)
 ==========================================================
-LAB NOTE: Ung dung nay co HAI lo hong duoc cai dat co chu dich cho muc
-dich hoc tap:
+LAB NOTE: Ung dung nay co HAI lo hong duoc cai dat co chu dich, THIET
+KE DE NOI TIEP NHAU thanh MOT chuoi tan cong duy nhat, xoay quanh ma
+giam gia:
 
-  1. RACE CONDITION (CWE-367, Time-of-Check to Time-of-Use) o endpoint
-     ap ma giam gia POST /api/cart/apply-coupon
+  1. VUOT QUYEN / BROKEN FUNCTION LEVEL AUTHORIZATION (CWE-862) o
+     GET /api/admin/coupon - API duy nhat trong khu vuc /api/admin/*
+     bi QUEN goi require_admin() (chi con check dang nhap). Moi
+     endpoint quan tri khac (/admin, /admin/orders, GET
+     /api/admin/orders, POST /api/admin/orders/<id>/update-status) deu
+     kiem tra quyen admin dung cach - CHI MOT CHO SOT duy nhat nay.
 
-  2. BROKEN FUNCTION LEVEL AUTHORIZATION / VUOT QUYEN (CWE-862) o
-     endpoint POST /api/admin/orders/<id>/update-status - mot API quan
-     tri bi QUEN goi require_admin() (chi con check dang nhap), trong
-     khi moi endpoint /admin/* va /api/admin/* khac deu kiem tra quyen
-     admin dung cach. Day la loi "mot endpoint lot luoi" rat thuc te
-     (Broken Function Level Authorization / OWASP API5).
+  2. RACE CONDITION (CWE-367, Time-of-Check to Time-of-Use) o endpoint
+     ap ma giam gia POST /api/cart/apply-coupon.
+
+  Diem ket noi: ma giam gia hop le KHONG CON la hang so cong khai
+  "SALE20" nua, ma duoc sinh ngau nhien va chi luu trong CSDL, chi
+  admin xem duoc qua /admin. De khai thac duoc race condition (lo hong
+  #2), attacker BAT BUOC phai co ma that truoc - va con duong thuc te
+  duy nhat de co duoc no la khai thac lo hong vuot quyen (lo hong #1)
+  o GET /api/admin/coupon. Hai lo hong rieng le, chi nghiem trong khi
+  ket hop lai. Xem README muc 2b/2c de biet chi tiet + kich ban tan
+  cong day du.
 
 Toan bo cac chuc nang khac (dang ky, dang nhap, tim kiem, trang chi
-tiet san pham, trang ca nhan, lich su don hang...) deu duoc viet an
-toan co chu dich: kiem tra quyen so huu (ownership check) tren moi
-du lieu rieng tu, mat khau duoc hash, khong co SQL injection (dung
-parameterized query xuyen suot), khong co XSS (Jinja2 tu dong escape
-va khong dung |safe o bat ky dau), de khong gay nhieu cho bai lab.
+tiet san pham, trang ca nhan, lich su don hang, quan ly don hang cua
+admin...) deu duoc viet an toan co chu dich: kiem tra quyen so huu
+(ownership check) tren moi du lieu rieng tu, kiem tra quyen admin dung
+cach tren moi endpoint /api/admin/* (tru endpoint noi tren), mat khau
+duoc hash, khong co SQL injection (dung parameterized query xuyen
+suot), khong co XSS (Jinja2 tu dong escape va khong dung |safe o bat
+ky dau), de khong gay nhieu cho bai lab.
 
 Chi tiet lo hong va cach khai thac: xem README.md.
 """
@@ -61,7 +73,11 @@ def is_safe_redirect_target(next_url):
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "pixelmart.db")
 
-COUPON_CODE = "SALE20"
+# Ma giam gia KHONG CON la hang so cong khai trong code/giao dien nua.
+# Ma thuc te duoc sinh ngau nhien va luu trong bang `coupons`, CHI admin
+# moi xem duoc qua khu vuc quan tri (xem muc 2b/2c README). Hang so duoi
+# day chi la PHAN TRAM giam gia (khong phai bi mat), dung chung cho ma
+# dang hoat dong.
 COUPON_PERCENT = 20  # giam 20% moi lan ap dung thanh cong
 
 CATEGORIES = ["Bàn phím", "Chuột", "Tai nghe", "Màn hình", "Loa", "Webcam", "Phụ kiện"]
@@ -183,6 +199,14 @@ def init_db():
             coupon_uses INTEGER NOT NULL DEFAULT 0
         );
 
+        CREATE TABLE coupons (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT NOT NULL,
+            percent INTEGER NOT NULL DEFAULT 20,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE cart_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             cart_id INTEGER NOT NULL REFERENCES carts(id),
@@ -253,6 +277,16 @@ def init_db():
         ("Gõ rất sướng tay, đáng tiền.",),
     )
 
+    # Ma giam gia dang hoat dong - sinh NGAU NHIEN moi lan container khoi
+    # dong (giong moi du lieu khac trong lab), KHONG hardcode, KHONG hien
+    # thi o bat ky dau tren giao dien cong khai. Chi admin xem duoc qua
+    # /admin (hoac qua khai thac lo hong vuot quyen - xem README muc 2c).
+    active_coupon_code = "VIP" + secrets.token_hex(3).upper()
+    conn.execute(
+        "INSERT INTO coupons (code, percent, active) VALUES (?, ?, 1)",
+        (active_coupon_code, COUPON_PERCENT),
+    )
+
     conn.commit()
     conn.close()
 
@@ -268,6 +302,15 @@ def get_or_create_cart(db, user_id):
         db.commit()
         cart = db.execute("SELECT * FROM carts WHERE user_id = ?", (user_id,)).fetchone()
     return cart
+
+
+def get_active_coupon(db):
+    """Ma giam gia dang hoat dong duy nhat cua lab - chi admin duoc xem
+    (dung) hop phap qua /admin. Khong co endpoint cong khai nao tra ve
+    gia tri nay cho user thuong."""
+    return db.execute(
+        "SELECT * FROM coupons WHERE active = 1 ORDER BY id DESC LIMIT 1"
+    ).fetchone()
 
 
 def calc_cart_subtotal_and_items(db, cart_id):
@@ -771,7 +814,16 @@ def api_apply_coupon():
     """
     *** DAY LA ENDPOINT CHUA LO HONG (RACE CONDITION / TOCTOU) ***
 
-    Luong xu ly (co tinh viet khong an toan, giong loi thuc te hay gap):
+    Luu y: ma giam gia hop le (`coupons.code`) la BI MAT, sinh ngau nhien,
+    CHI admin xem duoc qua /admin (muc 2b) - endpoint nay khong tiet lo
+    ma dung la gi, chi tra ve loi "invalid coupon code" cho ma sai. De
+    khai thac duoc race condition o day, attacker phai co ma hop le
+    truoc - thong thuong la bang cach khai thac lo hong vuot quyen o muc
+    2c de "muon" ma giam gia cua admin. Hai lo hong duoc thiet ke de noi
+    tiep nhau thanh MOT kich ban tan cong hoan chinh (xem README).
+
+    Luong xu ly o CHINH endpoint nay (co tinh viet khong an toan, giong
+    loi thuc te hay gap):
 
       1. TIME OF CHECK: doc cart.coupon_applied tu DB.
       2. (mo phong xu ly nghiep vu ton thoi gian: validate ma, log, v.v.)
@@ -790,10 +842,11 @@ def api_apply_coupon():
     data = request.get_json(force=True, silent=True) or {}
     code = (data.get("code") or "").strip().upper()
 
-    if code != COUPON_CODE:
+    db = get_db()
+    coupon = get_active_coupon(db)
+    if coupon is None or code != coupon["code"]:
         return jsonify({"error": "invalid coupon code"}), 400
 
-    db = get_db()
     cart = get_or_create_cart(db, current_user_id())
 
     # ---- TIME OF CHECK ----
@@ -817,7 +870,7 @@ def api_apply_coupon():
     )
     db.commit()
 
-    return jsonify({"ok": True, "message": f"Áp dụng mã {COUPON_CODE} thành công (-{COUPON_PERCENT}%)."})
+    return jsonify({"ok": True, "message": f"Áp dụng mã {coupon['code']} thành công (-{coupon['percent']}%)."})
 
 
 @app.route("/api/cart/checkout", methods=["POST"])
@@ -903,11 +956,15 @@ def api_whoami():
 # ---------------------------------------------------------------------------
 # Khu vuc quan tri (/admin/*) - CHI danh cho role = 'admin'.
 #
-# Tat ca cac trang HTML (/admin, /admin/orders) va API GET deu kiem tra
-# quyen dung cach bang admin_required_page() / require_admin(). CHI RIENG
-# API POST /api/admin/orders/<id>/update-status o cuoi file nay la bi
-# thieu kiem tra quyen (xem comment VULN NOTE tai do) - day la lo hong
-# "vuot quyen" thu hai cua lab, xem README muc 6.
+# Tat ca cac trang HTML va API o day deu kiem tra quyen dung cach bang
+# admin_required_page() / require_admin() - KE CA API quan ly don hang
+# (da tung la lo hong o ban truoc, nay da duoc SUA, xem README muc 6).
+#
+# CHI RIENG API GET /api/admin/coupon (de xem ma giam gia dang hoat
+# dong) o cuoi file nay la thieu kiem tra quyen admin - day la lo hong
+# "vuot quyen" DUY NHAT con lai cua lab, duoc thiet ke de noi tiep voi
+# race condition o /api/cart/apply-coupon thanh MOT chuoi tan cong hoan
+# chinh. Xem README muc 2b/2c.
 # ---------------------------------------------------------------------------
 
 @app.route("/admin")
@@ -953,19 +1010,12 @@ def api_admin_list_orders():
 
 @app.route("/api/admin/orders/<int:order_id>/update-status", methods=["POST"])
 def api_admin_update_order_status(order_id):
-    # !!! VULN NOTE (CWE-862 - Missing Function Level Authorization) !!!
-    # Endpoint nay CHI goi require_login() (kiem tra da dang nhap) ma
-    # QUEN goi require_admin() (kiem tra co phai admin khong) nhu moi
-    # endpoint /api/admin/* khac phia tren. Hau qua: BAT KY user da dang
-    # nhap nao - khong can la admin - cung co the goi API nay de sua
-    # payment_verified/admin_note tren BAT KY don hang nao (ca don hang
-    # cua nguoi khac), gia mao xac nhan thanh toan.
-    #
-    # Day la loi rat thuc te: trong mot ung dung co nhieu endpoint quan
-    # tri, chi can MOT cho quen gan decorator/kiem tra quyen la du de
-    # vuot quyen toan bo chuc nang do - khong lien quan gi den race
-    # condition o coupon (lo hong con lai cua lab).
-    auth = require_login()
+    # Dung cach (DA SUA so voi ban truoc - xem README muc 6): kiem tra
+    # quyen admin dung nhu moi endpoint /api/admin/* khac. Endpoint nay
+    # la mot vi du doi chung: cung nam trong /api/admin/*, cung thao tac
+    # tren du lieu nhay cam cua nguoi khac, nhung duoc bao ve dung cach -
+    # chi mot minh /api/admin/coupon ben duoi la con lo.
+    auth = require_admin()
     if auth:
         return auth
 
@@ -984,15 +1034,41 @@ def api_admin_update_order_status(order_id):
     )
     db.commit()
 
-    result = {"ok": True, "order_id": order_id, "payment_verified": payment_verified, "admin_note": admin_note}
+    return jsonify({"ok": True, "order_id": order_id, "payment_verified": payment_verified, "admin_note": admin_note})
 
-    # Flag duoc cap khi mot user KHONG PHAI admin, thao tac tren mot don
-    # hang KHONG PHAI cua chinh minh, van goi thanh cong API nay va xac
-    # minh thanh toan - chung minh da vuot quyen (vertical) + dung sai
-    # don hang nguoi khac (horizontal), chu khong chi la tu sua don cua
-    # chinh minh.
-    if not is_admin() and order["user_id"] != current_user_id() and payment_verified:
-        result["flag"] = "LAB{bfla_missing_admin_check_order_takeover_pixelmart}"
+
+@app.route("/api/admin/coupon", methods=["GET"])
+def api_admin_coupon():
+    # !!! VULN NOTE (CWE-862 - Broken Function Level Authorization) !!!
+    # Day la API DUY NHAT trong khu vuc /api/admin/* QUEN goi
+    # require_admin() - chi goi require_login() (kiem tra da dang nhap).
+    # Moi API /api/admin/* khac phia tren deu goi require_admin() dung
+    # cach; day la "mot cho sot" duy nhat, dung y de minh hoa loi BFLA
+    # that: du hau het endpoint duoc bao ve dung, chi can QUEN mot cho
+    # la toan bo "bi mat quan tri" (ma giam gia cua admin) bi lo ra cho
+    # BAT KY user da dang nhap nao - khong can la admin.
+    #
+    # Hau qua nghiem trong hon ban than no: ma giam gia lo ra o day la
+    # dau vao de khai thac tiep lo hong RACE CONDITION o
+    # /api/cart/apply-coupon (vi ma khong con la hang so cong khai
+    # "SALE20" nua) - hai lo hong duoc thiet ke noi tiep nhau thanh MOT
+    # chuoi tan cong hoan chinh. Xem README muc 2c.
+    auth = require_login()
+    if auth:
+        return auth
+
+    db = get_db()
+    coupon = get_active_coupon(db)
+    if coupon is None:
+        return jsonify({"error": "no active coupon"}), 404
+
+    result = {"code": coupon["code"], "percent": coupon["percent"], "active": bool(coupon["active"])}
+
+    # Flag rieng cho buoc "vuot quyen ro ri ma giam gia" - chi cap khi
+    # nguoi goi KHONG PHAI admin (chung minh day thuc su la mot lan khai
+    # thac, khong phai hanh vi hop le cua admin).
+    if not is_admin():
+        result["flag"] = "LAB{bfla_leaked_admin_voucher_pixelmart}"
 
     return jsonify(result)
 

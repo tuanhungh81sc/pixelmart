@@ -20,12 +20,12 @@
     </button>
 
     <div id="coupon-list" style="display:none; margin-bottom:16px;">
-      <div class="coupon-item">
-        <div>
-          <div class="code">SALE20</div>
-          <div class="desc">Giảm 20% cho đơn hàng</div>
-        </div>
-        <button id="coupon-apply-btn" onclick="applyCoupon('SALE20', this)" class="btn btn-primary" style="padding:7px 14px; font-size:12px;">
+      <div class="text-sm muted" style="margin-bottom:10px;">
+        Nhập mã giảm giá bạn có (nhận được qua email/chương trình khuyến mãi):
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:12px;">
+        <input type="text" id="coupon-code-input" placeholder="Nhập mã giảm giá..." class="field-input" style="margin-bottom:0; text-transform:uppercase;">
+        <button id="coupon-apply-btn" onclick="applyCoupon(document.getElementById('coupon-code-input').value, this)" class="btn btn-primary" style="padding:7px 14px; font-size:12px; white-space:nowrap;">
           Dùng mã
         </button>
       </div>

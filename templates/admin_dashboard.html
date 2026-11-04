@@ -23,7 +23,7 @@
   </div>
 </div>
 
-<div class="card">
+<div class="card" style="margin-bottom:18px;">
   <p class="muted text-sm" style="margin-bottom:14px;">
     Khu vực chỉ dành cho quản trị viên. Xem và xác minh thanh toán cho
     các đơn hàng của toàn bộ khách hàng tại trang quản lý đơn hàng.
@@ -31,4 +31,15 @@
   <a href="/admin/orders" class="btn btn-primary">Quản lý đơn hàng →</a>
 </div>
 
+<div class="card">
+  <div style="font-weight:700; margin-bottom:10px;">🎟️ Mã giảm giá đang hoạt động</div>
+  <p class="muted text-sm" style="margin-bottom:14px;">
+    Mã này được sinh ngẫu nhiên, chỉ hiển thị tại đây cho quản trị viên
+    — dùng để gửi riêng cho khách hàng qua email/chương trình khuyến
+    mãi, không hiển thị công khai trên website.
+  </p>
+  <div id="admin-coupon-box" class="muted text-sm">Đang tải...</div>
+</div>
+
+<script src="{{ url_for('static', filename='js/admin-coupon.js') }}"></script>
 {% endblock %}
