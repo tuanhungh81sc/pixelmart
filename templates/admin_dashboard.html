@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Quản trị - PixelMart{% endblock %}
+{% block content %}
+
+<h1 class="page-title">Bảng điều khiển quản trị</h1>
+
+<div class="admin-stats">
+  <div class="admin-stat-tile">
+    <div class="num">{{ total_users }}</div>
+    <div class="label">Người dùng</div>
+  </div>
+  <div class="admin-stat-tile">
+    <div class="num">{{ total_orders }}</div>
+    <div class="label">Đơn hàng</div>
+  </div>
+  <div class="admin-stat-tile">
+    <div class="num">{{ "{:,}".format(total_revenue) }}đ</div>
+    <div class="label">Tổng doanh thu</div>
+  </div>
+  <div class="admin-stat-tile">
+    <div class="num">{{ verified_count }}</div>
+    <div class="label">Đơn đã xác minh thanh toán</div>
+  </div>
+</div>
+
+<div class="card">
+  <p class="muted text-sm" style="margin-bottom:14px;">
+    Khu vực chỉ dành cho quản trị viên. Xem và xác minh thanh toán cho
+    các đơn hàng của toàn bộ khách hàng tại trang quản lý đơn hàng.
+  </p>
+  <a href="/admin/orders" class="btn btn-primary">Quản lý đơn hàng →</a>
+</div>
+
+{% endblock %}

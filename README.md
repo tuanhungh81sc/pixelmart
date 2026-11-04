@@ -1,13 +1,23 @@
-# PixelMart Lab — Race Condition (TOCTOU) khi áp mã giảm giá
+# PixelMart Lab — Race Condition + Vượt quyền (BFLA)
 
-Lab web giả lập một cửa hàng bán linh kiện máy tính (PixelMart), chỉ chứa
-**một lỗ hổng duy nhất**: Race Condition dạng *Time-of-Check to Time-of-Use*
-(TOCTOU) ở chức năng áp mã giảm giá trong giỏ hàng — CWE-367.
+Lab web giả lập một cửa hàng bán linh kiện máy tính (PixelMart), chứa
+**hai lỗ hổng được cài đặt có chủ đích**, mỗi lỗ hổng minh hoạ một nhóm
+lỗi business-logic/access-control hoàn toàn khác nhau:
 
-Đây là lỗi **business logic**: mọi request gửi lên đều hợp lệ về cú pháp,
-đúng định dạng, đúng xác thực. Scanner (ZAP, Nuclei, Nikto…) sẽ không
-tìm ra lỗi này vì nó không nằm ở input độc hại mà nằm ở **thứ tự thời
-gian xử lý** giữa nhiều request chạy song song.
+1. **Race Condition** dạng *Time-of-Check to Time-of-Use* (TOCTOU) ở
+   chức năng áp mã giảm giá trong giỏ hàng — CWE-367 (xem mục 2a).
+2. **Vượt quyền / Broken Function Level Authorization (BFLA)** ở API
+   quản trị xác minh thanh toán đơn hàng — CWE-862 (xem mục 2b). Một
+   user thường (không phải admin) có thể gọi thẳng API này để giả mạo
+   xác minh thanh toán cho **đơn hàng của người khác**.
+
+Cả hai đều là lỗi **business logic / access control**: mọi request gửi
+lên đều hợp lệ về cú pháp, đúng định dạng, đúng xác thực (có đăng nhập).
+Scanner tự động (ZAP, Nuclei, Nikto…) rất khó hoặc không tìm ra: lỗi #1
+nằm ở **thứ tự thời gian xử lý** giữa nhiều request song song (xem mục
+5), còn lỗi #2 chỉ lộ ra khi **so sánh hành vi của 2 tài khoản khác cấp
+quyền** trên cùng một endpoint — việc scanner thông thường không làm trừ
+khi được cấu hình riêng cho kiểm thử phân quyền (authorization testing).
 
 ---
 
@@ -24,6 +34,7 @@ PixelMart là một website bán linh kiện máy tính đầy đủ chức năn
 | `/profile` | Xem/sửa thông tin cá nhân (họ tên, email, địa chỉ), đổi mật khẩu |
 | `/orders`, `/orders/<id>` | Lịch sử đơn hàng (có trạng thái đơn mô phỏng) và chi tiết từng đơn (chỉ xem được đơn của chính mình) |
 | `/about`, `/policy`, `/contact` | Trang giới thiệu, chính sách đổi trả/bảo hành, liên hệ (chỉ là nội dung tĩnh để tăng độ thật) |
+| `/admin`, `/admin/orders` | Khu vực quản trị (**chỉ tài khoản role=admin**): bảng điều khiển thống kê, quản lý/xác minh thanh toán đơn hàng của toàn bộ khách hàng |
 
 Luồng mua hàng: đăng ký/đăng nhập → duyệt/tìm sản phẩm (có lọc trang,
 tìm kiếm, bộ lọc danh mục) → thêm vào giỏ → chọn phương thức thanh toán
@@ -37,7 +48,10 @@ giao hàng → Đã giao thành công).
   dữ liệu mỗi lần container khởi động.
 - Mật khẩu được hash (werkzeug), có 20 sản phẩm mẫu thuộc 7 danh mục.
 - Tài khoản demo: `tester` / `Password123!` (bạn cũng có thể tự đăng ký
-  tài khoản mới qua `/register`).
+  tài khoản mới qua `/register`) — tài khoản thường, `role = 'user'`.
+- Tài khoản admin demo: `admin` / `AdminPixelMart#2026!` — `role = 'admin'`,
+  dùng để đăng nhập xem khu vực `/admin` hợp lệ, hoặc để đối chiếu hành vi
+  "đúng" so với tài khoản thường khi kiểm thử lỗ hổng vượt quyền (mục 2b).
 - Giao diện có banner khuyến mãi tự động chạy, khung xương (skeleton)
   khi tải giỏ hàng, huy hiệu niềm tin (miễn phí ship/bảo hành/đổi trả),
   số lượng đã bán trên mỗi sản phẩm, avatar màu cho người đánh giá,
@@ -103,16 +117,19 @@ giao hàng → Đã giao thành công).
   khai thác được, đúng tinh thần một lỗ hổng business-logic yêu cầu tư
   duy kiểm thử chủ động thay vì chỉ thao tác UI thông thường.
 
-> **Lưu ý về phạm vi lỗ hổng:** toàn bộ các chức năng mới (đăng ký, trang
-> cá nhân, lịch sử đơn hàng, đánh giá sản phẩm...) đều được viết an toàn
-> có chủ đích — có kiểm tra quyền sở hữu (vd. `/orders/<id>` chỉ cho xem
-> đơn hàng của chính người đăng nhập, trả về 404 nếu cố xem đơn của
-> người khác), dùng parameterized query, không có `|safe` trong
-> template. **Lỗ hổng duy nhất của lab vẫn là race condition ở
-> `/api/cart/apply-coupon`** như mô tả bên dưới — các chức năng khác chỉ
-> để làm bối cảnh giống một cửa hàng thật, không phải để tìm thêm lỗi.
+> **Lưu ý về phạm vi lỗ hổng:** toàn bộ các chức năng còn lại (đăng ký,
+> trang cá nhân, lịch sử đơn hàng, đánh giá sản phẩm, và hầu hết khu vực
+> `/admin/*`) đều được viết an toàn có chủ đích — có kiểm tra quyền sở
+> hữu (vd. `/orders/<id>` chỉ cho xem đơn hàng của chính người đăng
+> nhập), có kiểm tra quyền admin đúng cách (vd. `GET /api/admin/orders`
+> trả 403 cho user thường), dùng parameterized query, không có `|safe`
+> trong template. **Lab có đúng HAI lỗ hổng đã được xác nhận**: race
+> condition ở `/api/cart/apply-coupon` (mục 2a) và vượt quyền ở
+> `POST /api/admin/orders/<id>/update-status` (mục 2b) — các chức năng
+> khác chỉ để làm bối cảnh giống một cửa hàng thật, không phải để tìm
+> thêm lỗi.
 
-## 2. Lỗ hổng nằm ở đâu
+## 2a. Lỗ hổng #1 — Race Condition (TOCTOU) ở coupon
 
 File `app.py`, route `/api/cart/apply-coupon`. Luồng xử lý:
 
@@ -136,6 +153,79 @@ Hệ quả: giỏ hàng trị giá hàng triệu đồng có thể giảm về g
 > Trong thực tế race window thường hẹp hơn nhiều (vài mili-giây do độ
 > trễ I/O của database thật), nhưng bản chất lỗi và cách khai thác
 > (bắn nhiều request song song) là giống hệt.
+
+---
+
+## 2b. Lỗ hổng #2 — Vượt quyền (Broken Function Level Authorization)
+
+### Mô hình phân quyền
+
+Từ bản cập nhật này, `users` có thêm cột `role` (`'user'` mặc định,
+hoặc `'admin'`). Khu vực quản trị `/admin/*` dùng 2 lớp kiểm tra:
+
+- Trang HTML (`/admin`, `/admin/orders`): decorator `admin_required_page`
+  — chưa đăng nhập thì chuyển hướng `/login`, đăng nhập nhưng không phải
+  admin thì trả về **404** (không lộ rằng trang này tồn tại).
+- API JSON (`/api/admin/*`): hàm `require_admin()` — chưa đăng nhập trả
+  **401**, không phải admin trả **403**.
+
+**Mọi route quản trị đều áp dụng đúng 2 lớp kiểm tra này — TRỪ MỘT API**:
+
+```python
+@app.route("/api/admin/orders/<int:order_id>/update-status", methods=["POST"])
+def api_admin_update_order_status(order_id):
+    # !!! VULN: chi goi require_login() (kiem tra DA DANG NHAP),
+    # QUEN goi require_admin() (kiem tra CO PHAI ADMIN) nhu moi
+    # endpoint /api/admin/* khac !!!
+    auth = require_login()
+    if auth:
+        return auth
+    ...
+    db.execute("UPDATE orders SET payment_verified = ?, admin_note = ? WHERE id = ?", ...)
+```
+
+Đây là API dùng để admin "xác minh thanh toán" + ghi chú nội bộ cho một
+đơn hàng (nút **Xác minh thanh toán** ở trang `/admin/orders`). Vì thiếu
+dòng kiểm tra quyền admin, **bất kỳ user nào đã đăng nhập** — kể cả một
+tài khoản vừa tự đăng ký — đều có thể gọi thẳng API này trên **bất kỳ
+`order_id` nào**, kể cả đơn hàng của người khác, để tự ý đặt
+`payment_verified = true` và ghi đè `admin_note`.
+
+Hậu quả: một khách hàng có thể giả mạo xác nhận "đã thanh toán/đã xác
+minh" cho đơn hàng của **bất kỳ ai** (kể cả chính họ với đơn COD chưa hề
+thanh toán), hoặc chèn `admin_note` tuỳ ý vào hồ sơ nội bộ mà admin nhìn
+thấy — vừa là vượt quyền theo chiều dọc (user → hành vi của admin), vừa
+là IDOR theo chiều ngang (tác động lên dữ liệu người khác), nghiêm trọng
+hơn hẳn một lỗi XSS/CSRF thông thường vì nó bỏ qua toàn bộ mô hình phân
+quyền của hệ thống chỉ bằng MỘT request.
+
+### Vì sao lại "khó" hơn kiểu lỗi mass-assignment đơn giản
+
+Lab **cố tình không** để lộ lỗ hổng theo kiểu dễ nhất ("gửi thêm field
+`role=admin` vào form `/profile`" — field `role` **không hề** được nhận
+từ client ở bất kỳ endpoint cập nhật hồ sơ nào, không có mass assignment
+ở đó). Thay vào đó, người kiểm thử phải:
+
+1. **Trinh sát** để biết khu vực quản trị tồn tại — `robots.txt` cố tình
+   tiết lộ `Disallow: /admin` và `Disallow: /static/js/` (một lỗi trinh
+   sát rất thật: nhiều site vô tình để lộ cấu trúc nhạy cảm qua robots.txt).
+2. **Đọc bundle JS tĩnh** `static/js/admin-orders.js` — file này được
+   Flask phục vụ qua cơ chế `/static/` **mặc định, không hề được bảo vệ
+   bởi `admin_required_page`**, dù nó chỉ được dùng trên trang đã được
+   bảo vệ đó. Đọc file này (không cần đăng nhập) lộ ra chính xác API
+   `POST /api/admin/orders/<id>/update-status` và cấu trúc JSON body.
+3. **So sánh hành vi giữa 2 tài khoản khác cấp quyền** (đăng ký một tài
+   khoản thường, thử endpoint đó, so với việc `/admin` trang HTML và
+   `GET /api/admin/orders` đều bị chặn đúng cách) — để nhận ra ĐÚNG MỘT
+   endpoint trong cả cụm quản trị bị thiếu kiểm tra, thay vì toàn bộ khu
+   vực admin đều hở.
+
+Đây là mô hình lỗi rất thực tế trong các hệ thống lớn: Broken Function
+Level Authorization (OWASP API Security Top 10 — API5:2023) thường xảy
+ra chính xác theo kiểu này — nhà phát triển bảo vệ đúng hầu hết endpoint
+nhưng **quên đúng một chỗ** khi thêm tính năng mới, và endpoint đó không
+hiện trên UI cho user thường nên dễ bị bỏ sót khi test thủ công thông
+thường (chỉ test bằng cách click qua giao diện).
 
 ---
 
@@ -300,7 +390,83 @@ curl -s -b cookies.txt http://localhost:5000/api/cart
 
 ---
 
+## 4b. Hướng dẫn kiểm thử thủ công — Vượt quyền (BFLA)
+
+### Bước 1 — Trinh sát, tìm khu vực quản trị
+
+```bash
+curl -s http://localhost:5000/robots.txt
+```
+
+Sẽ thấy `Disallow: /admin` và `Disallow: /static/js/` — gợi ý có khu
+vực quản trị. Đăng nhập bằng tài khoản `tester` thường (không phải
+admin) rồi thử mở `/admin` trên trình duyệt — sẽ bị trả về trang 404,
+**không phải** trang đăng nhập hay trang "không có quyền" rõ ràng, nên
+chưa chắc chắn `/admin` có tồn tại hay không chỉ bằng cách này.
+
+### Bước 2 — Đọc bundle JS tĩnh (không cần đăng nhập)
+
+```bash
+curl -s http://localhost:5000/static/js/admin-orders.js
+```
+
+File này **không yêu cầu đăng nhập** (được phục vụ như mọi file static
+khác). Đọc nó sẽ thấy rõ 2 API:
+
+```js
+fetch('/api/admin/orders')                                  // GET - danh sách đơn hàng
+fetch(`/api/admin/orders/${orderId}/update-status`, {       // POST - xác minh thanh toán
+  method: 'POST', body: JSON.stringify({ payment_verified: true, admin_note: ... })
+})
+```
+
+### Bước 3 — So sánh hành vi 2 API bằng tài khoản thường
+
+Đăng nhập Burp/trình duyệt bằng `tester` / `Password123!` (tài khoản
+**thường**, không phải admin), rồi thử lần lượt:
+
+```bash
+curl -s -b cookies.txt -i http://localhost:5000/api/admin/orders
+# -> HTTP 403 Forbidden (API này kiểm tra quyền admin đúng cách)
+
+curl -s -b cookies.txt -i -X POST http://localhost:5000/api/admin/orders/1/update-status \
+  -H "Content-Type: application/json" \
+  -d '{"payment_verified": true, "admin_note": "verified by non-admin!"}'
+# -> HTTP 200 OK  <-- LỖ HỔNG: endpoint "anh em" lại không chặn!
+```
+
+Chú ý: `1` ở đây là `order_id` của **một đơn hàng bất kỳ** — kể cả đơn
+không thuộc về `tester`. Vì ID là số nguyên tự tăng và dễ đoán, bạn có
+thể đăng nhập một tài khoản khác, checkout để lấy `order_id` làm "nạn
+nhân", rồi quay lại tài khoản `tester` để tấn công đúng đơn đó — chứng
+minh cả 2 chiều: vượt quyền (user → hành vi admin) **và** IDOR (tác
+động lên dữ liệu người khác).
+
+Mở `/orders/<id>` của nạn nhân sau khi tấn công để thấy nhãn **"Đã xác
+minh"** cùng `admin_note` giả mạo hiển thị công khai trên trang chi
+tiết đơn hàng của họ — hoặc đăng nhập `admin` / `AdminPixelMart#2026!`
+rồi mở `/admin/orders` để thấy admin thật cũng nhìn thấy dữ liệu đã bị
+thao túng y hệt.
+
+### Bước 4 — Khai thác bằng script có sẵn trong lab
+
+```bash
+pip install --break-system-packages requests
+python3 exploit/privesc_order_verify.py --url http://localhost:5000
+```
+
+Script tự động thực hiện đúng 4 bước trên: đọc `robots.txt`, tải JS
+tĩnh, tạo một "nạn nhân" + đơn hàng mới, tự đăng ký một tài khoản tấn
+công (không phải admin), xác nhận tài khoản đó KHÔNG xem được
+`/admin`/`GET /api/admin/orders`, rồi gọi thẳng
+`POST /api/admin/orders/<id>/update-status` trên đơn của nạn nhân và in
+ra flag nếu thành công.
+
+---
+
 ## 5. Vì sao scanner tự động không phát hiện được
+
+**Lỗ hổng #1 (race condition):**
 
 - Mỗi request riêng lẻ đều là request hợp lệ: đúng xác thực (có
   session cookie), đúng định dạng JSON, đúng mã giảm giá thật.
@@ -314,7 +480,34 @@ curl -s -b cookies.txt http://localhost:5000/api/cart
   không?" — đây là bước chỉ con người (hoặc công cụ chuyên biệt như
   Burp Turbo Intruder) mới làm được.
 
-## 5b. Audit bảo mật toàn bộ ứng dụng (để xác nhận chỉ có 1 lỗ hổng)
+**Lỗ hổng #2 (vượt quyền/BFLA):**
+
+- Scanner DAST chạy với **một** phiên đăng nhập duy nhất (thường là tài
+  khoản admin/cấp cao được cấu hình để crawl được nhiều trang nhất) sẽ
+  thấy mọi endpoint `/api/admin/*` đều trả 200 — không có gì "sai cú
+  pháp" để báo lỗi.
+- Phát hiện được lỗi này đòi hỏi kiểm thử theo đúng phương pháp
+  **authorization testing**: lặp lại CÙNG MỘT tập request bằng **nhiều
+  cấp quyền khác nhau** (ẩn danh / user thường / admin) rồi so sánh kết
+  quả — đây là tính năng của các công cụ chuyên biệt (Burp Suite
+  Autorize/Auth Analyzer extension, OWASP ZAP access-control testing)
+  hoặc phải làm thủ công, **không phải** hành vi mặc định của hầu hết
+  scanner phổ thông.
+- Endpoint bị lỗi không được liên kết ở bất kỳ đâu trên giao diện cho
+  user thường (không có nút bấm nào dẫn tới nó) nên scanner crawl theo
+  link cũng sẽ không tự tìm ra — phải biết tên endpoint trước (qua đọc
+  JS tĩnh hoặc đoán theo quy ước đặt tên REST), đúng như quy trình ở
+  mục 4b.
+
+## 5b. Audit bảo mật toàn bộ ứng dụng (ghi nhận lịch sử)
+
+> Audit dưới đây được thực hiện **trước khi** lỗ hổng #2 (vượt quyền,
+> mục 2b) được chủ đích thêm vào lab. Tại thời điểm audit, mục tiêu là
+> xác nhận lab **chỉ có 1 lỗ hổng** (race condition) — kết quả vẫn còn
+> giá trị tham khảo cho toàn bộ phần code **không liên quan khu vực
+> `/admin`**: các mục được đánh dấu AN TOÀN bên dưới không bị ảnh hưởng
+> bởi những thay đổi sau này. Khu vực `/admin` (được thêm sau, chứa lỗ
+> hổng #2 có chủ đích) có audit riêng ở mục 2b.
 
 Đã rà soát lại toàn bộ `app.py` và toàn bộ template (`templates/`) theo
 các nhóm lỗi phổ biến: SQL injection, XSS/SSTI, IDOR/BOLA, CSRF, mass
@@ -427,6 +620,54 @@ Cách này đảm bảo chỉ **đúng một** request trong số các request c
 song song có thể làm thay đổi `coupon_applied` từ 0 → 1, vì SQLite
 (và hầu hết RDBMS) tự khóa dòng dữ liệu trong một câu UPDATE đơn lẻ.
 
+### Khắc phục lỗ hổng #2 (vượt quyền / BFLA)
+
+Cách sửa "đúng nhưng vẫn sai thực tế" là chỉ thêm lại dòng bị quên:
+
+```python
+@app.route("/api/admin/orders/<int:order_id>/update-status", methods=["POST"])
+def api_admin_update_order_status(order_id):
+    auth = require_admin()   # <-- doi tu require_login() sang require_admin()
+    if auth:
+        return auth
+    ...
+```
+
+Nhưng bài học quan trọng hơn là: **đừng dựa vào việc nhớ gọi đúng hàm ở
+từng route**. Cách khắc phục triệt để hơn, tránh lặp lại kiểu lỗi "quên
+một chỗ" này khi thêm endpoint mới trong tương lai, là gom toàn bộ
+`/api/admin/*` vào **một Blueprint riêng** và áp dụng kiểm tra quyền tại
+MỘT nơi duy nhất bằng `before_request`, thay vì rải decorator/hàm kiểm
+tra ở từng route:
+
+```python
+from flask import Blueprint
+
+admin_api = Blueprint("admin_api", __name__, url_prefix="/api/admin")
+
+@admin_api.before_request
+def _enforce_admin_role():
+    # Chay TRUOC moi route trong blueprint nay - khong co cach nao
+    # dang ky mot route /api/admin/* ma "quen" kiem tra duoc nua.
+    auth = require_admin()
+    if auth:
+        return auth
+
+@admin_api.route("/orders", methods=["GET"])
+def list_orders(): ...
+
+@admin_api.route("/orders/<int:order_id>/update-status", methods=["POST"])
+def update_order_status(order_id): ...
+
+app.register_blueprint(admin_api)
+```
+
+Ngoài ra, nên bổ sung **kiểm thử tự động theo phương pháp authorization
+testing**: với mỗi endpoint cần quyền admin, viết test gọi bằng (a) ẩn
+danh, (b) user thường, (c) admin — khẳng định rõ ràng (a)/(b) đều bị từ
+chối và chỉ (c) thành công. Nếu có endpoint nào thiếu test loại này,
+đó chính là dấu hiệu nó có thể đang bị bỏ sót kiểm tra quyền.
+
 ---
 
 ## 7. Cấu trúc thư mục
@@ -447,16 +688,21 @@ pixelmart/
 │   ├── cart.html               # giỏ hàng + áp mã + thanh toán
 │   ├── profile.html            # thông tin cá nhân + đổi mật khẩu
 │   ├── orders.html             # danh sách đơn hàng (có trạng thái)
-│   ├── order_detail.html       # chi tiết 1 đơn hàng (phí ship, thanh toán, trạng thái)
+│   ├── order_detail.html       # chi tiết 1 đơn hàng (phí ship, thanh toán, trạng thái, xác minh)
+│   ├── admin_dashboard.html    # bảng điều khiển quản trị (chỉ role=admin)
+│   ├── admin_orders.html       # quản lý/xác minh thanh toán đơn hàng (chỉ role=admin)
 │   ├── about.html, policy.html, contact.html  # trang tĩnh (trust signal)
 │   ├── 404.html
 │   └── 500.html
 ├── static/
 │   ├── style.css              # toàn bộ theme giao diện (thuần CSS)
-│   └── products/               # ảnh sản phẩm sinh offline (p<id>_1/2/3.jpg)
+│   ├── products/               # ảnh sản phẩm sinh offline (p<id>_1/2/3.jpg)
+│   └── js/
+│       └── admin-orders.js    # JS cho trang /admin/orders - CÔNG KHAI,
+│                                 # không yêu cầu đăng nhập (xem mục 2b)
 └── exploit/
-    └── race_coupon.py        # script khai thác tự động (không đổi,
-                                 # vẫn gọi đúng các API endpoint cũ)
+    ├── race_coupon.py         # khai thác lỗ hổng #1 (race condition)
+    └── privesc_order_verify.py # khai thác lỗ hổng #2 (vượt quyền/BFLA)
 ```
 
 **Cảnh báo:** chỉ chạy lab này trong môi trường cô lập (máy cá nhân/VM

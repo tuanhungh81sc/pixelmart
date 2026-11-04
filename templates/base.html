@@ -42,6 +42,9 @@
       {% if logged_in %}
         <a href="/orders"><span class="nav-icon">📦</span><span class="label">Đơn hàng</span></a>
         <a href="/profile"><span class="nav-icon">👤</span><span class="label">{{ username }}</span></a>
+        {% if is_admin_user %}
+        <a href="/admin"><span class="nav-icon">⚙️</span><span class="label">Quản trị</span></a>
+        {% endif %}
         <a class="cart-pill" href="/cart"><span class="nav-icon">🛒</span><span class="label">Giỏ hàng ({{ cart_count }})</span></a>
         <a href="/logout"><span class="label">Đăng xuất</span></a>
       {% else %}

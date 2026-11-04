@@ -1,11 +1,18 @@
 """
-PixelMart - Vulnerable Lab Application (v2 - full shop)
+PixelMart - Vulnerable Lab Application (v3 - full shop + admin panel)
 ==========================================================
-LAB NOTE: Ung dung nay co MOT lo hong duy nhat, cai dat co chu dich
-cho muc dich hoc tap:
+LAB NOTE: Ung dung nay co HAI lo hong duoc cai dat co chu dich cho muc
+dich hoc tap:
 
-  RACE CONDITION (CWE-367, Time-of-Check to Time-of-Use) o endpoint
-  ap ma giam gia POST /api/cart/apply-coupon
+  1. RACE CONDITION (CWE-367, Time-of-Check to Time-of-Use) o endpoint
+     ap ma giam gia POST /api/cart/apply-coupon
+
+  2. BROKEN FUNCTION LEVEL AUTHORIZATION / VUOT QUYEN (CWE-862) o
+     endpoint POST /api/admin/orders/<id>/update-status - mot API quan
+     tri bi QUEN goi require_admin() (chi con check dang nhap), trong
+     khi moi endpoint /admin/* va /api/admin/* khac deu kiem tra quyen
+     admin dung cach. Day la loi "mot endpoint lot luoi" rat thuc te
+     (Broken Function Level Authorization / OWASP API5).
 
 Toan bo cac chuc nang khac (dang ky, dang nhap, tim kiem, trang chi
 tiet san pham, trang ca nhan, lich su don hang...) deu duoc viet an
@@ -154,6 +161,7 @@ def init_db():
             email TEXT NOT NULL,
             full_name TEXT NOT NULL DEFAULT '',
             address TEXT NOT NULL DEFAULT '',
+            role TEXT NOT NULL DEFAULT 'user',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -193,6 +201,8 @@ def init_db():
             coupon_uses INTEGER NOT NULL DEFAULT 0,
             payment_method TEXT NOT NULL DEFAULT 'cod',
             shipping_address TEXT NOT NULL DEFAULT '',
+            payment_verified INTEGER NOT NULL DEFAULT 0,
+            admin_note TEXT NOT NULL DEFAULT '',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -227,6 +237,14 @@ def init_db():
         "INSERT INTO users (username, password_hash, email, full_name, address) VALUES (?, ?, ?, ?, ?)",
         ("tester", generate_password_hash("Password123!"), "tester@example.com",
          "Nguyễn Văn Tester", "123 Đường ABC, Quận 1, TP.HCM"),
+    )
+
+    # Tai khoan admin demo (dung cho trang quan tri /admin, xem muc 6 README)
+    conn.execute(
+        "INSERT INTO users (username, password_hash, email, full_name, address, role) "
+        "VALUES (?, ?, ?, ?, ?, 'admin')",
+        ("admin", generate_password_hash("AdminPixelMart#2026!"), "admin@pixelmart.local",
+         "Quản trị viên PixelMart", "Trụ sở PixelMart"),
     )
 
     # Vai review mau cho san pham dau tien de trang chi tiet khong trong
@@ -327,7 +345,7 @@ def inject_globals():
     # free-shipping hint in footer/topbar) — read-only constants, no DB write,
     # no effect on any route's logic or the lab's single vulnerability.
     ctx = {
-        "cart_count": 0, "logged_in": False, "username": None,
+        "cart_count": 0, "logged_in": False, "username": None, "is_admin_user": False,
         "nav_categories": CATEGORIES, "nav_free_shipping_threshold": FREE_SHIPPING_THRESHOLD,
     }
     if current_user_id():
@@ -335,6 +353,7 @@ def inject_globals():
         ctx["cart_count"] = cart_item_count(db, current_user_id())
         ctx["logged_in"] = True
         ctx["username"] = session.get("username")
+        ctx["is_admin_user"] = is_admin()
     return ctx
 
 
@@ -347,6 +366,37 @@ def login_required_page(fn):
             return redirect(url_for("login", next=request.path))
         return fn(*args, **kwargs)
     return wrapper
+
+
+def is_admin():
+    uid = current_user_id()
+    if not uid:
+        return False
+    row = get_db().execute("SELECT role FROM users WHERE id = ?", (uid,)).fetchone()
+    return bool(row) and row["role"] == "admin"
+
+
+def admin_required_page(fn):
+    from functools import wraps
+
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if not current_user_id():
+            return redirect(url_for("login", next=request.path))
+        if not is_admin():
+            return render_template("404.html"), 404
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+def require_admin():
+    """Dung cho cac API /api/admin/* - BAT BUOC goi o moi endpoint quan tri.
+    (Xem README muc 6: mot endpoint da VO Y QUEN goi ham nay.)"""
+    if not current_user_id():
+        return jsonify({"error": "unauthorized"}), 401
+    if not is_admin():
+        return jsonify({"error": "forbidden"}), 403
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -848,6 +898,113 @@ def api_whoami():
     if not current_user_id():
         return jsonify({"logged_in": False})
     return jsonify({"logged_in": True, "username": session.get("username")})
+
+
+# ---------------------------------------------------------------------------
+# Khu vuc quan tri (/admin/*) - CHI danh cho role = 'admin'.
+#
+# Tat ca cac trang HTML (/admin, /admin/orders) va API GET deu kiem tra
+# quyen dung cach bang admin_required_page() / require_admin(). CHI RIENG
+# API POST /api/admin/orders/<id>/update-status o cuoi file nay la bi
+# thieu kiem tra quyen (xem comment VULN NOTE tai do) - day la lo hong
+# "vuot quyen" thu hai cua lab, xem README muc 6.
+# ---------------------------------------------------------------------------
+
+@app.route("/admin")
+@admin_required_page
+def admin_dashboard():
+    db = get_db()
+    total_users = db.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
+    total_orders = db.execute("SELECT COUNT(*) AS c FROM orders").fetchone()["c"]
+    total_revenue = db.execute("SELECT COALESCE(SUM(final_price), 0) AS s FROM orders").fetchone()["s"]
+    verified_count = db.execute("SELECT COUNT(*) AS c FROM orders WHERE payment_verified = 1").fetchone()["c"]
+    return render_template(
+        "admin_dashboard.html",
+        total_users=total_users, total_orders=total_orders,
+        total_revenue=total_revenue, verified_count=verified_count,
+    )
+
+
+@app.route("/admin/orders")
+@admin_required_page
+def admin_orders_page():
+    return render_template("admin_orders.html")
+
+
+@app.route("/api/admin/orders", methods=["GET"])
+def api_admin_list_orders():
+    # Dung cach: kiem tra quyen admin truoc khi tra ve du lieu CUA MOI user.
+    auth = require_admin()
+    if auth:
+        return auth
+    db = get_db()
+    rows = db.execute(
+        """
+        SELECT o.id, o.user_id, u.username, u.full_name, u.email,
+               o.subtotal, o.discount, o.final_price, o.payment_method,
+               o.payment_verified, o.admin_note, o.shipping_address, o.created_at
+        FROM orders o
+        JOIN users u ON u.id = o.user_id
+        ORDER BY o.created_at DESC
+        """
+    ).fetchall()
+    return jsonify({"orders": [dict(r) for r in rows]})
+
+
+@app.route("/api/admin/orders/<int:order_id>/update-status", methods=["POST"])
+def api_admin_update_order_status(order_id):
+    # !!! VULN NOTE (CWE-862 - Missing Function Level Authorization) !!!
+    # Endpoint nay CHI goi require_login() (kiem tra da dang nhap) ma
+    # QUEN goi require_admin() (kiem tra co phai admin khong) nhu moi
+    # endpoint /api/admin/* khac phia tren. Hau qua: BAT KY user da dang
+    # nhap nao - khong can la admin - cung co the goi API nay de sua
+    # payment_verified/admin_note tren BAT KY don hang nao (ca don hang
+    # cua nguoi khac), gia mao xac nhan thanh toan.
+    #
+    # Day la loi rat thuc te: trong mot ung dung co nhieu endpoint quan
+    # tri, chi can MOT cho quen gan decorator/kiem tra quyen la du de
+    # vuot quyen toan bo chuc nang do - khong lien quan gi den race
+    # condition o coupon (lo hong con lai cua lab).
+    auth = require_login()
+    if auth:
+        return auth
+
+    data = request.get_json(silent=True) or {}
+    payment_verified = bool(data.get("payment_verified"))
+    admin_note = (data.get("admin_note") or "")[:300]
+
+    db = get_db()
+    order = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if order is None:
+        return jsonify({"error": "not found"}), 404
+
+    db.execute(
+        "UPDATE orders SET payment_verified = ?, admin_note = ? WHERE id = ?",
+        (1 if payment_verified else 0, admin_note, order_id),
+    )
+    db.commit()
+
+    result = {"ok": True, "order_id": order_id, "payment_verified": payment_verified, "admin_note": admin_note}
+
+    # Flag duoc cap khi mot user KHONG PHAI admin, thao tac tren mot don
+    # hang KHONG PHAI cua chinh minh, van goi thanh cong API nay va xac
+    # minh thanh toan - chung minh da vuot quyen (vertical) + dung sai
+    # don hang nguoi khac (horizontal), chu khong chi la tu sua don cua
+    # chinh minh.
+    if not is_admin() and order["user_id"] != current_user_id() and payment_verified:
+        result["flag"] = "LAB{bfla_missing_admin_check_order_takeover_pixelmart}"
+
+    return jsonify(result)
+
+
+@app.route("/robots.txt")
+def robots_txt():
+    # robots.txt tiet lo su ton tai cua khu vuc /admin va bundle JS cua no
+    # - day la mot "dau vet" trinh sat rat thuc te (nhieu website vo tinh
+    # lam lo cau truc thu muc nhay cam qua robots.txt khi co y dinh an no
+    # khoi cong cu tim kiem, chu khong phai khoi nguoi dung).
+    body = "User-agent: *\nDisallow: /admin\nDisallow: /static/js/\n"
+    return app.response_class(body, mimetype="text/plain")
 
 
 # ---------------------------------------------------------------------------

@@ -34,6 +34,13 @@
   {% if order.shipping_address %}
   <div class="muted text-sm" style="margin-top:8px;">Giao đến: {{ order.shipping_address }}</div>
   {% endif %}
+  <div class="summary-row" style="margin-top:14px;">
+    <span class="muted">Xác minh thanh toán (nội bộ)</span>
+    <span class="verify-pill {{ 'yes' if order.payment_verified else 'no' }}">{{ 'Đã xác minh' if order.payment_verified else 'Chưa xác minh' }}</span>
+  </div>
+  {% if order.admin_note %}
+  <div class="muted text-sm" style="margin-top:8px;">Ghi chú nội bộ: {{ order.admin_note }}</div>
+  {% endif %}
 </div>
 
 {% endblock %}

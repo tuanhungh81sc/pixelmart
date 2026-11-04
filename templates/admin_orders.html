@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Quản lý đơn hàng - PixelMart{% endblock %}
+{% block content %}
+
+<h1 class="page-title">Quản lý đơn hàng (tất cả khách hàng)</h1>
+
+<div id="admin-orders-msg" class="text-sm" style="margin-bottom:10px;"></div>
+
+<div class="admin-table-wrap">
+  <table class="admin-table" id="admin-orders-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Khách hàng</th>
+        <th>Tổng tiền</th>
+        <th>Thanh toán</th>
+        <th>Xác minh</th>
+        <th>Ghi chú nội bộ</th>
+        <th>Thao tác</th>
+      </tr>
+    </thead>
+    <tbody id="admin-orders-tbody">
+      <tr><td colspan="7" class="muted">Đang tải...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script src="{{ url_for('static', filename='js/admin-orders.js') }}"></script>
+{% endblock %}
