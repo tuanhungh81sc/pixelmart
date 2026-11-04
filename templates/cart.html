@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Giỏ hàng - PixelMart{% endblock %}
+{% block content %}
+
+<h1 style="font-size:22px; margin-bottom:20px;">Giỏ hàng của bạn</h1>
+
+<div style="display:grid; grid-template-columns:2fr 1fr; gap:24px;">
+  <div id="cart-items-wrap" style="background:#1a1d24; border-radius:10px; padding:18px;">
+    <div id="cart-items"></div>
+  </div>
+
+  <div style="background:#1a1d24; border-radius:10px; padding:18px; align-self:start;">
+    <div style="display:flex; gap:6px; margin-bottom:16px;">
+      <input type="text" id="coupon-code" placeholder="Nhập mã giảm giá" value="{{ coupon_code_hint }}"
+             style="flex:1; padding:8px; border-radius:6px; border:1px solid #333; background:#0f1115; color:#fff;">
+      <button onclick="applyCoupon()" style="padding:8px 12px; border:none; border-radius:6px; background:#4f7cff; color:#fff; cursor:pointer;">Áp dụng</button>
+    </div>
+    <div style="font-size:13px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Tạm tính</span><span id="subtotal">0đ</span></div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Giảm giá (<span id="coupon-uses">0</span> lần)</span><span id="discount">0đ</span></div>
+      <div style="display:flex; justify-content:space-between; font-size:16px; font-weight:bold; color:#4f7cff; border-top:1px solid #2a2e38; padding-top:10px; margin-top:6px;"><span>Thành tiền</span><span id="final-price">0đ</span></div>
+    </div>
+    <button onclick="checkout()" style="width:100%; margin-top:14px; padding:10px; border:none; border-radius:6px; background:#2fbf71; color:#06130c; font-weight:bold; cursor:pointer;">
+      Thanh toán
+    </button>
+    <div id="msg" style="font-size:12px; margin-top:10px; min-height:16px;"></div>
+  </div>
+</div>
+
+<script>
+async function refreshCart() {
+  const res = await fetch('/api/cart');
+  const data = await res.json();
+  const itemsEl = document.getElementById('cart-items');
+  itemsEl.innerHTML = data.items.length
+    ? data.items.map(i => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #2a2e38;">
+          <div style="display:flex; gap:12px; align-items:center;">
+            <span style="font-size:26px;">${i.img || '📦'}</span>
+            <div>
+              <div style="font-size:14px;">${i.name}</div>
+              <div style="font-size:12px; color:#777;">${i.unit_price.toLocaleString()}đ x ${i.quantity}</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:14px; align-items:center;">
+            <span style="font-weight:bold;">${i.line_total.toLocaleString()}đ</span>
+            <button onclick="removeItem(${i.product_id})" style="background:none; border:none; color:#ff6b6b; cursor:pointer; font-size:13px;">Xoá</button>
+          </div>
+        </div>`).join('')
+    : '<div style="color:#777; padding:20px 0; text-align:center;">Giỏ hàng trống. <a href="/" style="color:#4f7cff;">Tiếp tục mua sắm</a></div>';
+  document.getElementById('subtotal').innerText = data.subtotal.toLocaleString() + 'đ';
+  document.getElementById('discount').innerText = data.discount.toLocaleString() + 'đ';
+  document.getElementById('coupon-uses').innerText = data.coupon_uses;
+  document.getElementById('final-price').innerText = data.final_price.toLocaleString() + 'đ';
+}
+
+function showMsg(text, ok) {
+  const el = document.getElementById('msg');
+  el.innerText = text;
+  el.style.color = ok ? '#2fbf71' : '#ff6b6b';
+}
+
+async function removeItem(productId) {
+  await fetch('/api/cart/remove', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({product_id: productId})
+  });
+  refreshCart();
+}
+
+async function applyCoupon() {
+  const code = document.getElementById('coupon-code').value;
+  const res = await fetch('/api/cart/apply-coupon', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({code})
+  });
+  const data = await res.json();
+  showMsg(res.ok ? data.message : data.error, res.ok);
+  refreshCart();
+}
+
+async function checkout() {
+  const res = await fetch('/api/cart/checkout', { method: 'POST' });
+  const data = await res.json();
+  if (res.ok) {
+    let text = `Đặt hàng thành công! Thanh toán: ${data.final_price.toLocaleString()}đ`;
+    if (data.flag) text += `  🚩 FLAG: ${data.flag}`;
+    showMsg(text, true);
+    setTimeout(() => { window.location.href = '/orders/' + data.order_id; }, 1200);
+  } else {
+    showMsg(data.error, false);
+  }
+  refreshCart();
+}
+
+refreshCart();
+</script>
+{% endblock %}

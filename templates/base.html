@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}PixelMart{% endblock %}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background:#0f1115; color:#e6e6e6; margin:0; }
+  a { color:inherit; }
+  header { display:flex; justify-content:space-between; align-items:center; padding:14px 32px; background:#1a1d24; position:sticky; top:0; z-index:10; flex-wrap:wrap; gap:10px; }
+  header .brand { font-size:20px; font-weight:bold; text-decoration:none; }
+  nav { display:flex; gap:18px; align-items:center; font-size:14px; }
+  nav a { text-decoration:none; color:#ccc; }
+  nav a:hover { color:#fff; }
+  nav .cart-link { background:#2a2e38; padding:6px 12px; border-radius:20px; }
+  main { max-width:1100px; margin:28px auto; padding:0 16px; }
+  .flash { max-width:1100px; margin:16px auto 0; padding:0 16px; }
+  .flash-msg { padding:10px 14px; border-radius:8px; margin-bottom:8px; font-size:14px; }
+  .flash-msg.success { background:#163a26; color:#7ee6a4; }
+  .flash-msg.error { background:#3a1620; color:#ff9eae; }
+  footer { text-align:center; color:#555; font-size:12px; padding:30px 0; }
+  input, select, textarea { font-family: inherit; }
+  button { font-family: inherit; }
+</style>
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+<header>
+  <a class="brand" href="/">🛒 PixelMart</a>
+  <nav>
+    {% if logged_in %}
+      <a href="/">Sản phẩm</a>
+      <a href="/orders">Đơn hàng</a>
+      <a href="/profile">Tài khoản ({{ username }})</a>
+      <a class="cart-link" href="/cart">Giỏ hàng ({{ cart_count }})</a>
+      <a href="/logout">Đăng xuất</a>
+    {% else %}
+      <a href="/login">Đăng nhập</a>
+      <a href="/register">Đăng ký</a>
+    {% endif %}
+  </nav>
+</header>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash">
+    {% for category, message in messages %}
+      <div class="flash-msg {{ category }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<main>
+{% block content %}{% endblock %}
+</main>
+
+<footer>PixelMart Lab — chỉ dùng cho mục đích học tập bảo mật web, không chứa dữ liệu thật.</footer>
+</body>
+</html>

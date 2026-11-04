@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}PixelMart - Linh kiện máy tính{% endblock %}
+{% block content %}
+
+<form method="GET" action="/" style="display:flex; gap:10px; margin-bottom:24px; flex-wrap:wrap;">
+  <input type="text" name="q" value="{{ q }}" placeholder="Tìm kiếm sản phẩm..."
+         style="flex:1; min-width:200px; padding:10px 14px; border-radius:8px; border:1px solid #333; background:#1a1d24; color:#fff;">
+  <select name="category" style="padding:10px 14px; border-radius:8px; border:1px solid #333; background:#1a1d24; color:#fff;">
+    <option value="">Tất cả danh mục</option>
+    {% for c in categories %}
+      <option value="{{ c }}" {% if c == selected_category %}selected{% endif %}>{{ c }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" style="padding:10px 20px; border:none; border-radius:8px; background:#4f7cff; color:#fff; font-weight:bold; cursor:pointer;">
+    Tìm
+  </button>
+  {% if q or selected_category %}
+    <a href="/" style="padding:10px 16px; border-radius:8px; background:#2a2e38; color:#ccc; text-decoration:none; font-size:14px; display:flex; align-items:center;">Xoá lọc</a>
+  {% endif %}
+</form>
+
+{% if not products %}
+  <p style="color:#777;">Không tìm thấy sản phẩm nào phù hợp.</p>
+{% endif %}
+
+<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:18px;">
+  {% for p in products %}
+  <a href="/product/{{ p.id }}" style="text-decoration:none; background:#1a1d24; border-radius:12px; padding:18px; display:block; transition:transform .1s;">
+    <div style="font-size:40px; margin-bottom:10px;">{{ p.img }}</div>
+    <div style="font-size:12px; color:#777; margin-bottom:4px;">{{ p.category }}</div>
+    <h3 style="margin:0 0 8px 0; font-size:15px; color:#fff;">{{ p.name }}</h3>
+    <div style="color:#4f7cff; font-weight:bold;">{{ "{:,}".format(p.price) }}đ</div>
+  </a>
+  {% endfor %}
+</div>
+
+{% endblock %}

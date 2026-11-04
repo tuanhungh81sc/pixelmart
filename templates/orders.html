@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Đơn hàng - PixelMart{% endblock %}
+{% block content %}
+
+<h1 style="font-size:22px; margin-bottom:20px;">Lịch sử đơn hàng</h1>
+
+{% if not orders %}
+  <p style="color:#777;">Bạn chưa có đơn hàng nào. <a href="/" style="color:#4f7cff;">Mua sắm ngay</a></p>
+{% endif %}
+
+<div style="display:flex; flex-direction:column; gap:12px;">
+  {% for o in orders %}
+  <a href="/orders/{{ o.id }}" style="text-decoration:none; color:inherit; background:#1a1d24; border-radius:10px; padding:16px 18px; display:flex; justify-content:space-between; align-items:center;">
+    <div>
+      <div style="font-size:14px; font-weight:bold; margin-bottom:4px;">Đơn hàng #{{ o.id }}</div>
+      <div style="font-size:12px; color:#777;">{{ o.created_at }}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="color:#4f7cff; font-weight:bold;">{{ "{:,}".format(o.final_price) }}đ</div>
+      {% if o.discount > 0 %}<div style="font-size:12px; color:#2fbf71;">Đã giảm {{ "{:,}".format(o.discount) }}đ</div>{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+{% endblock %}

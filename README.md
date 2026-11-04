@@ -13,11 +13,35 @@ gian xử lý** giữa nhiều request chạy song song.
 
 ## 1. Mô hình ứng dụng
 
-- Đăng nhập → thêm sản phẩm vào giỏ → áp mã giảm giá `SALE20` (giảm 20%,
-  **chỉ được áp dụng 1 lần** cho mỗi giỏ hàng) → thanh toán.
+PixelMart là một website bán linh kiện máy tính đầy đủ chức năng:
+
+| Trang | Mô tả |
+|---|---|
+| `/` | Trang chủ: lưới sản phẩm, tìm kiếm theo tên, lọc theo danh mục |
+| `/product/<id>` | Chi tiết sản phẩm: mô tả, sản phẩm liên quan, đánh giá (viết/xem) |
+| `/register`, `/login` | Đăng ký tài khoản mới, đăng nhập |
+| `/cart` | Giỏ hàng: xem/xoá sản phẩm, áp mã giảm giá, thanh toán |
+| `/profile` | Xem/sửa thông tin cá nhân (họ tên, email, địa chỉ), đổi mật khẩu |
+| `/orders`, `/orders/<id>` | Lịch sử đơn hàng và chi tiết từng đơn (chỉ xem được đơn của chính mình) |
+
+Luồng mua hàng: đăng ký/đăng nhập → duyệt/tìm sản phẩm → thêm vào giỏ →
+áp mã giảm giá `SALE20` (giảm 20%, **chỉ được áp dụng 1 lần** cho mỗi
+giỏ hàng) → thanh toán → xem lại trong lịch sử đơn hàng.
+
 - Backend: Python Flask + SQLite, chạy trong container Docker, tự reset
   dữ liệu mỗi lần container khởi động.
-- Tài khoản demo: `tester` / `Password123!`
+- Mật khẩu được hash (werkzeug), có 10 sản phẩm mẫu thuộc 7 danh mục.
+- Tài khoản demo: `tester` / `Password123!` (bạn cũng có thể tự đăng ký
+  tài khoản mới qua `/register`).
+
+> **Lưu ý về phạm vi lỗ hổng:** toàn bộ các chức năng mới (đăng ký, trang
+> cá nhân, lịch sử đơn hàng, đánh giá sản phẩm...) đều được viết an toàn
+> có chủ đích — có kiểm tra quyền sở hữu (vd. `/orders/<id>` chỉ cho xem
+> đơn hàng của chính người đăng nhập, trả về 404 nếu cố xem đơn của
+> người khác), dùng parameterized query, không có `|safe` trong
+> template. **Lỗ hổng duy nhất của lab vẫn là race condition ở
+> `/api/cart/apply-coupon`** như mô tả bên dưới — các chức năng khác chỉ
+> để làm bối cảnh giống một cửa hàng thật, không phải để tìm thêm lỗi.
 
 ## 2. Lỗ hổng nằm ở đâu
 
@@ -58,10 +82,9 @@ sudo usermod -aG docker $USER   # rồi đăng xuất/đăng nhập lại để 
 
 ### 3.2. Build và chạy lab
 
-Giải nén thư mục `pixelmart-lab/` rồi:
-
 ```bash
-cd pixelmart-lab
+git clone https://github.com/tuanhungh81sc/pixelmart.git
+cd pixelmart
 docker compose up --build -d
 ```
 
@@ -245,17 +268,26 @@ song song có thể làm thay đổi `coupon_applied` từ 0 → 1, vì SQLite
 ## 7. Cấu trúc thư mục
 
 ```
-pixelmart-lab/
+pixelmart/
 ├── app.py                   # Flask app (chứa lỗ hổng + comment giải thích)
 ├── requirements.txt
 ├── Dockerfile
 ├── docker-compose.yml
 ├── entrypoint.sh             # reset DB mỗi lần container start
 ├── templates/
+│   ├── base.html             # layout chung (header, nav, flash message)
 │   ├── login.html
-│   └── shop.html
+│   ├── register.html
+│   ├── home.html              # trang chủ: lưới sản phẩm + tìm kiếm/lọc
+│   ├── product_detail.html    # chi tiết sản phẩm + đánh giá
+│   ├── cart.html               # giỏ hàng + áp mã + thanh toán
+│   ├── profile.html            # thông tin cá nhân + đổi mật khẩu
+│   ├── orders.html             # danh sách đơn hàng
+│   ├── order_detail.html       # chi tiết 1 đơn hàng
+│   └── 404.html
 └── exploit/
-    └── race_coupon.py        # script khai thác tự động
+    └── race_coupon.py        # script khai thác tự động (không đổi,
+                                 # vẫn gọi đúng các API endpoint cũ)
 ```
 
 **Cảnh báo:** chỉ chạy lab này trong môi trường cô lập (máy cá nhân/VM
