@@ -58,6 +58,28 @@ giao hàng → Đã giao thành công).
   và không cần mạng khi chạy trong Docker. Trang chủ/sản phẩm liên
   quan/giỏ hàng dùng ảnh đầu tiên làm ảnh đại diện; trang chi tiết sản
   phẩm có gallery 3 ảnh bấm để đổi ảnh chính.
+
+  **Muốn dùng ảnh chụp thật thay vì ảnh vector?** Môi trường build/chạy
+  sandbox dùng để phát triển lab này có tường lửa chỉ cho phép ra
+  Internet tới các kho gói (pip/npm) và GitHub, nên không thể tự tải
+  ảnh từ các kho ảnh stock (Unsplash/Pexels/Openverse...) ngay trong đó.
+  Thay vào đó, repo có sẵn script tuỳ chọn `scripts/fetch_real_product_images.py`
+  — chạy **một lần, thủ công, trên máy có Internet thật** (máy Windows
+  của bạn, hoặc VM Debian nếu nó có mạng ra ngoài):
+
+  ```bash
+  pip install --break-system-packages requests pillow
+  python3 scripts/fetch_real_product_images.py
+  ```
+
+  Script tự tìm và tải ảnh thật qua Openverse API (kho tổng hợp ảnh có
+  giấy phép mở, miễn phí, không cần API key), chỉ lấy ảnh được phép
+  dùng thương mại, resize/crop về đúng kích thước rồi **ghi đè** vào
+  đúng `static/products/p<id>_1/2/3.jpg` — không cần sửa gì ở
+  template/app.py. Nguồn/giấy phép từng ảnh được ghi lại vào
+  `static/products/SOURCES.md` để tra cứu. Chạy xong thì build lại
+  (`docker compose up --build -d`) là ảnh mới lên ngay. Nếu không chạy
+  script này, lab vẫn hoạt động bình thường với ảnh vector có sẵn.
 - Nút **Thanh toán** mô phỏng luồng checkout thật: hiện popup loading
   (~1.2-1.7s) rồi mới mở popup "Đặt hàng thành công" (có mã đơn, số
   tiền, email xác nhận, và flag nếu khai thác thành công) thay vì trả
