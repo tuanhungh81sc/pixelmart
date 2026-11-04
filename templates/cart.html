@@ -67,10 +67,33 @@
       <div id="free-ship-hint" class="hint-success">🎉 Đơn hàng của bạn được miễn phí vận chuyển</div>
       <div class="summary-row total"><span>Thành tiền</span><span id="final-price">0đ</span></div>
     </div>
-    <button onclick="checkout()" class="btn btn-success btn-block" style="margin-top:14px;">
+    <button id="checkout-btn" onclick="checkout()" class="btn btn-success btn-block" style="margin-top:14px;">
       Thanh toán
     </button>
     <div id="msg" style="font-size:12px; margin-top:10px; min-height:16px;"></div>
+  </div>
+</div>
+
+<div id="checkout-modal" class="modal-overlay" style="display:none;" onclick="handleOverlayClick(event)">
+  <div class="modal-box">
+    <div id="checkout-loading">
+      <div class="spinner"></div>
+      <div class="modal-title">Đang xử lý đơn hàng...</div>
+      <div class="muted text-sm">Vui lòng đợi trong giây lát</div>
+    </div>
+    <div id="checkout-success" style="display:none;">
+      <div class="modal-check">✓</div>
+      <div class="modal-title">Đặt hàng thành công!</div>
+      <div id="checkout-summary" class="muted text-sm" style="margin:10px 0 16px;"></div>
+      <div id="checkout-flag" class="modal-flag" style="display:none;"></div>
+      <button class="btn btn-primary btn-block" onclick="goToOrder()">Xem đơn hàng</button>
+    </div>
+    <div id="checkout-fail" style="display:none;">
+      <div class="modal-check" style="color:var(--danger); background:var(--danger-bg);">✕</div>
+      <div class="modal-title">Không thể đặt hàng</div>
+      <div id="checkout-fail-msg" class="muted text-sm" style="margin:10px 0 18px;"></div>
+      <button class="btn btn-ghost btn-block" onclick="closeCheckoutModal()">Đóng</button>
+    </div>
   </div>
 </div>
 
@@ -140,22 +163,76 @@ async function applyCoupon(code) {
   refreshCart();
 }
 
+let lastOrderId = null;
+let checkoutBusy = false;
+
+function openCheckoutModal() {
+  document.getElementById('checkout-modal').style.display = 'flex';
+  document.getElementById('checkout-loading').style.display = 'block';
+  document.getElementById('checkout-success').style.display = 'none';
+  document.getElementById('checkout-fail').style.display = 'none';
+}
+
+function closeCheckoutModal() {
+  if (checkoutBusy) return;
+  document.getElementById('checkout-modal').style.display = 'none';
+}
+
+function handleOverlayClick(e) {
+  if (e.target.id === 'checkout-modal') closeCheckoutModal();
+}
+
+function goToOrder() {
+  if (lastOrderId) window.location.href = '/orders/' + lastOrderId;
+}
+
 async function checkout() {
   const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
-  const res = await fetch('/api/cart/checkout', {
+  const btn = document.getElementById('checkout-btn');
+  if (checkoutBusy) return;
+  checkoutBusy = true;
+  btn.disabled = true;
+  openCheckoutModal();
+
+  // Thêm độ trễ hiển thị tối thiểu để giao diện giống một luồng thanh toán
+  // thật (xử lý thanh toán, gửi email xác nhận...) thay vì phản hồi tức thì -
+  // thuần UX, không ảnh hưởng tới logic hay độ trễ xử lý thật của server.
+  const minDelay = new Promise((resolve) => setTimeout(resolve, 1200 + Math.random() * 500));
+  const reqPromise = fetch('/api/cart/checkout', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({payment_method: paymentMethod})
   });
-  const data = await res.json();
+
+  let res, data;
+  try {
+    [res] = await Promise.all([reqPromise, minDelay]);
+    data = await res.json();
+  } catch (err) {
+    res = {ok: false};
+    data = {error: 'Không thể kết nối tới máy chủ. Vui lòng thử lại.'};
+  }
+
+  checkoutBusy = false;
+  btn.disabled = false;
+  document.getElementById('checkout-loading').style.display = 'none';
+
   if (res.ok) {
-    let text = `Đặt hàng thành công! Thanh toán: ${data.final_price.toLocaleString()}đ`;
-    if (data.confirmation_email) text += `. Email xác nhận đã được gửi tới ${data.confirmation_email}.`;
-    if (data.flag) text += `  🚩 FLAG: ${data.flag}`;
-    showMsg(text, true);
-    setTimeout(() => { window.location.href = '/orders/' + data.order_id; }, 1400);
+    lastOrderId = data.order_id;
+    let summary = `Mã đơn hàng #${data.order_id} · Thanh toán ${data.final_price.toLocaleString()}đ`;
+    if (data.confirmation_email) summary += ` · Email xác nhận đã gửi tới ${data.confirmation_email}`;
+    document.getElementById('checkout-summary').innerText = summary;
+    const flagEl = document.getElementById('checkout-flag');
+    if (data.flag) {
+      flagEl.style.display = 'block';
+      flagEl.innerText = '🚩 ' + data.flag;
+    } else {
+      flagEl.style.display = 'none';
+    }
+    document.getElementById('checkout-success').style.display = 'block';
   } else {
-    showMsg(data.error, false);
+    document.getElementById('checkout-fail-msg').innerText = data.error || 'Đã có lỗi xảy ra, vui lòng thử lại.';
+    document.getElementById('checkout-fail').style.display = 'block';
   }
   refreshCart();
 }

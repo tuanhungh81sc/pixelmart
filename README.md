@@ -58,6 +58,17 @@ giao hàng → Đã giao thành công).
   và không cần mạng khi chạy trong Docker. Trang chủ/sản phẩm liên
   quan/giỏ hàng dùng ảnh đầu tiên làm ảnh đại diện; trang chi tiết sản
   phẩm có gallery 3 ảnh bấm để đổi ảnh chính.
+- Nút **Thanh toán** mô phỏng luồng checkout thật: hiện popup loading
+  (~1.2-1.7s) rồi mới mở popup "Đặt hàng thành công" (có mã đơn, số
+  tiền, email xác nhận, và flag nếu khai thác thành công) thay vì trả
+  kết quả tức thì ra dòng chữ trên trang. Đây **chỉ là độ trễ hiển thị
+  phía client** (JS `setTimeout`) — request thật tới `/api/cart/checkout`
+  vẫn được gửi và xử lý ngay lập tức, không có gì thay đổi ở backend.
+  Mục đích là để giao diện không "lộ" kết quả bất thường một cách lộ
+  liễu khi bấm nút thủ công, buộc người kiểm thử phải bắt/gửi lại
+  request bằng Burp Repeater hoặc script (như `exploit/race_coupon.py`)
+  thay vì chỉ click nút nhanh tay trên UI mới phát hiện và khai thác
+  được race condition.
 
 > **Lưu ý về phạm vi lỗ hổng:** toàn bộ các chức năng mới (đăng ký, trang
 > cá nhân, lịch sử đơn hàng, đánh giá sản phẩm...) đều được viết an toàn
