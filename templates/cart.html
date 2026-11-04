@@ -25,7 +25,7 @@
           <div class="code">SALE20</div>
           <div class="desc">Giảm 20% cho đơn hàng</div>
         </div>
-        <button onclick="applyCoupon('SALE20')" class="btn btn-primary" style="padding:7px 14px; font-size:12px;">
+        <button id="coupon-apply-btn" onclick="applyCoupon('SALE20', this)" class="btn btn-primary" style="padding:7px 14px; font-size:12px;">
           Dùng mã
         </button>
       </div>
@@ -70,7 +70,28 @@
     <button id="checkout-btn" onclick="checkout()" class="btn btn-success btn-block" style="margin-top:14px;">
       Thanh toán
     </button>
-    <div id="msg" style="font-size:12px; margin-top:10px; min-height:16px;"></div>
+  </div>
+</div>
+
+<div id="coupon-modal" class="modal-overlay" style="display:none;" onclick="handleCouponOverlayClick(event)">
+  <div class="modal-box">
+    <div id="coupon-loading">
+      <div class="spinner"></div>
+      <div class="modal-title">Đang áp dụng mã giảm giá...</div>
+      <div class="muted text-sm">Vui lòng đợi trong giây lát</div>
+    </div>
+    <div id="coupon-success" style="display:none;">
+      <div class="modal-check">✓</div>
+      <div class="modal-title">Áp dụng mã thành công!</div>
+      <div id="coupon-success-msg" class="muted text-sm" style="margin:10px 0 18px;"></div>
+      <button class="btn btn-primary btn-block" onclick="closeCouponModal()">Đóng</button>
+    </div>
+    <div id="coupon-fail" style="display:none;">
+      <div class="modal-check" style="color:var(--danger); background:var(--danger-bg);">✕</div>
+      <div class="modal-title">Không thể áp dụng mã</div>
+      <div id="coupon-fail-msg" class="muted text-sm" style="margin:10px 0 18px;"></div>
+      <button class="btn btn-ghost btn-block" onclick="closeCouponModal()">Đóng</button>
+    </div>
   </div>
 </div>
 
@@ -129,12 +150,6 @@ async function refreshCart() {
   document.getElementById('final-price').innerText = data.final_price.toLocaleString() + 'đ';
 }
 
-function showMsg(text, ok) {
-  const el = document.getElementById('msg');
-  el.innerText = text;
-  el.style.color = ok ? 'var(--success)' : 'var(--danger)';
-}
-
 async function removeItem(productId) {
   await fetch('/api/cart/remove', {
     method: 'POST',
@@ -152,14 +167,63 @@ function toggleCouponList() {
   arrow.innerText = isOpen ? '▾' : '▴';
 }
 
-async function applyCoupon(code) {
-  const res = await fetch('/api/cart/apply-coupon', {
+let couponBusy = false;
+
+function openCouponModal() {
+  document.getElementById('coupon-modal').style.display = 'flex';
+  document.getElementById('coupon-loading').style.display = 'block';
+  document.getElementById('coupon-success').style.display = 'none';
+  document.getElementById('coupon-fail').style.display = 'none';
+}
+
+function closeCouponModal() {
+  if (couponBusy) return;
+  document.getElementById('coupon-modal').style.display = 'none';
+}
+
+function handleCouponOverlayClick(e) {
+  if (e.target.id === 'coupon-modal') closeCouponModal();
+}
+
+async function applyCoupon(code, btnEl) {
+  if (couponBusy) return;
+  couponBusy = true;
+  if (btnEl) btnEl.disabled = true;
+  openCouponModal();
+
+  // Cùng nguyên tắc với checkout(): độ trễ hiển thị tối thiểu này chỉ ở
+  // phía client (setTimeout), để thao tác bấm tay trên UI trông giống một
+  // luồng áp mã bình thường (có xử lý, không phản hồi tức thì) thay vì lộ
+  // ngay ra việc request đã được xử lý xong gần như ngay lập tức. Request
+  // thật tới /api/cart/apply-coupon vẫn được gửi và xử lý theo đúng tốc độ
+  // thực của server - không có gì thay đổi ở backend hay độ trễ thực tế.
+  const minDelay = new Promise((resolve) => setTimeout(resolve, 900 + Math.random() * 500));
+  const reqPromise = fetch('/api/cart/apply-coupon', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({code})
   });
-  const data = await res.json();
-  showMsg(res.ok ? data.message : data.error, res.ok);
+
+  let res, data;
+  try {
+    [res] = await Promise.all([reqPromise, minDelay]);
+    data = await res.json();
+  } catch (err) {
+    res = {ok: false};
+    data = {error: 'Không thể kết nối tới máy chủ. Vui lòng thử lại.'};
+  }
+
+  couponBusy = false;
+  if (btnEl) btnEl.disabled = false;
+  document.getElementById('coupon-loading').style.display = 'none';
+
+  if (res.ok) {
+    document.getElementById('coupon-success-msg').innerText = data.message;
+    document.getElementById('coupon-success').style.display = 'block';
+  } else {
+    document.getElementById('coupon-fail-msg').innerText = data.error || 'Đã có lỗi xảy ra, vui lòng thử lại.';
+    document.getElementById('coupon-fail').style.display = 'block';
+  }
   refreshCart();
 }
 

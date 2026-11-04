@@ -91,6 +91,17 @@ giao hàng → Đã giao thành công).
   request bằng Burp Repeater hoặc script (như `exploit/race_coupon.py`)
   thay vì chỉ click nút nhanh tay trên UI mới phát hiện và khai thác
   được race condition.
+- Nút **Dùng mã** (áp mã giảm giá) áp dụng đúng cùng cơ chế: bấm vào sẽ
+  bị **disable ngay lập tức** (chặn double-click tay thật) và hiện popup
+  loading ~0.9-1.4s rồi mới ra popup kết quả (thành công/thất bại) thay
+  vì phản hồi ngay. Cũng chỉ là độ trễ hiển thị phía client — request
+  thật tới `/api/cart/apply-coupon` vẫn được xử lý tức thì. Kết hợp cả
+  hai nút, việc chỉ bấm tay liên tục trên trình duyệt (kể cả rất nhanh)
+  **không còn khả thi** để kích hoạt race condition nữa — phải chủ đích
+  gửi nhiều request đồng thời bằng Burp Repeater (gộp nhóm gửi song
+  song) hoặc script (`exploit/race_coupon.py`, dùng `threading`) mới
+  khai thác được, đúng tinh thần một lỗ hổng business-logic yêu cầu tư
+  duy kiểm thử chủ động thay vì chỉ thao tác UI thông thường.
 
 > **Lưu ý về phạm vi lỗ hổng:** toàn bộ các chức năng mới (đăng ký, trang
 > cá nhân, lịch sử đơn hàng, đánh giá sản phẩm...) đều được viết an toàn
