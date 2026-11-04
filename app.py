@@ -1,37 +1,49 @@
 """
-PixelMart - Vulnerable Lab Application (v4 - chained privesc + race condition)
+PixelMart - Vulnerable Lab Application (v5 - trusted reverse-proxy header
+auth bypass + race condition)
 ==========================================================
 LAB NOTE: Ung dung nay co HAI lo hong duoc cai dat co chu dich, THIET
 KE DE NOI TIEP NHAU thanh MOT chuoi tan cong duy nhat, xoay quanh ma
 giam gia:
 
-  1. VUOT QUYEN / BROKEN FUNCTION LEVEL AUTHORIZATION (CWE-862) o
-     GET /api/admin/coupon - API duy nhat trong khu vuc /api/admin/*
-     bi QUEN goi require_admin() (chi con check dang nhap). Moi
-     endpoint quan tri khac (/admin, /admin/orders, GET
-     /api/admin/orders, POST /api/admin/orders/<id>/update-status) deu
-     kiem tra quyen admin dung cach - CHI MOT CHO SOT duy nhat nay.
+  1. AUTHENTICATION BYPASS BY SPOOFING MOT HEADER TIN TUONG TU REVERSE
+     PROXY (CWE-290). Ung dung mo phong tinh nang "dang nhap qua
+     reverse proxy / SSO header" rat pho bien trong cac he thong thuc
+     te (Gitea: REVERSE_PROXY_AUTHENTICATION_USER, GitLab/Jenkins co
+     co che tuong tu): neu request mang header "X-Webauth-User", app
+     TIN TUONG day la username DA DUOC MOT REVERSE PROXY O PHIA TRUOC
+     xac thuc gium, roi tu dong dang nhap bang username do - KHONG can
+     mat khau. Dieu kien an toan BAT BUOC cua co che nay la app KHONG
+     DUOC phep truy cap truc tiep tu ben ngoai (chi Nginx moi cham toi
+     duoc) - nhung deployment cua lab lai VI PHAM dieu kien do: cong
+     cua chinh Flask (5000) VAN duoc expose ra host/Internet song song
+     voi Nginx (80), nen ai cung goi THANG duoc toi Flask, bo qua
+     Nginx, va tu gan header do voi gia tri "admin" de chiem doat
+     session cua admin - khong can biet mat khau admin la gi.
 
   2. RACE CONDITION (CWE-367, Time-of-Check to Time-of-Use) o endpoint
      ap ma giam gia POST /api/cart/apply-coupon.
 
-  Diem ket noi: ma giam gia hop le KHONG CON la hang so cong khai
-  "SALE20" nua, ma duoc sinh ngau nhien va chi luu trong CSDL, chi
-  admin xem duoc qua /admin. De khai thac duoc race condition (lo hong
-  #2), attacker BAT BUOC phai co ma that truoc - va con duong thuc te
-  duy nhat de co duoc no la khai thac lo hong vuot quyen (lo hong #1)
-  o GET /api/admin/coupon. Hai lo hong rieng le, chi nghiem trong khi
-  ket hop lai. Xem README muc 2b/2c de biet chi tiet + kich ban tan
-  cong day du.
+  Diem ket noi: ma giam gia hop le KHONG phai hang so cong khai
+  "SALE20", ma duoc sinh ngau nhien va chi luu trong CSDL, chi admin
+  xem duoc qua /admin. De khai thac duoc race condition (lo hong #2),
+  attacker BAT BUOC phai co ma that truoc - va con duong thuc te duy
+  nhat de co duoc no la gia mao thanh admin qua lo hong #1 roi doc ma
+  qua chinh API hop phap GET /api/admin/coupon (API nay van duoc bao
+  ve dung cach bang require_admin() - no khong he co loi, van de la
+  SESSION dang goi no khong phai cua admin thuc). Hai lo hong rieng
+  le, chi nghiem trong khi ket hop lai. Xem README muc 2b/2c de biet
+  chi tiet + kich ban tan cong day du.
 
-Toan bo cac chuc nang khac (dang ky, dang nhap, tim kiem, trang chi
-tiet san pham, trang ca nhan, lich su don hang, quan ly don hang cua
-admin...) deu duoc viet an toan co chu dich: kiem tra quyen so huu
-(ownership check) tren moi du lieu rieng tu, kiem tra quyen admin dung
-cach tren moi endpoint /api/admin/* (tru endpoint noi tren), mat khau
-duoc hash, khong co SQL injection (dung parameterized query xuyen
-suot), khong co XSS (Jinja2 tu dong escape va khong dung |safe o bat
-ky dau), de khong gay nhieu cho bai lab.
+Toan bo cac chuc nang khac (dang ky, dang nhap bang mat khau, tim
+kiem, trang chi tiet san pham, trang ca nhan, lich su don hang, quan
+ly don hang cua admin...) deu duoc viet an toan co chu dich: kiem tra
+quyen so huu (ownership check) tren moi du lieu rieng tu, kiem tra
+quyen admin dung cach tren MOI endpoint /api/admin/* (khong con ngoai
+le nao - xem README muc 6), mat khau duoc hash, khong co SQL injection
+(dung parameterized query xuyen suot), khong co XSS (Jinja2 tu dong
+escape va khong dung |safe o bat ky dau), de khong gay nhieu cho bai
+lab.
 
 Chi tiet lo hong va cach khai thac: xem README.md.
 """
@@ -295,6 +307,61 @@ def current_user_id():
     return session.get("user_id")
 
 
+TRUSTED_PROXY_AUTH_HEADER = "X-Webauth-User"
+
+
+def try_trusted_proxy_login():
+    """
+    !!! VULN NOTE (CWE-290 - Authentication Bypass by Spoofing a
+    Trusted Reverse-Proxy Header) !!!
+
+    Mo phong tinh nang "dang nhap qua reverse proxy / SSO header" rat
+    pho bien trong he thong thuc te - vd Gitea co han hoi
+    REVERSE_PROXY_AUTHENTICATION_USER, GitLab/Jenkins co co che tuong
+    tu: mot reverse proxy dat truoc app (thuong tich hop LDAP/SSO) tu
+    xac thuc nguoi dung TRUOC, roi gan header nay vao request khi
+    forward vao app phia sau; app TIN TUONG hoan toan gia tri header
+    do la danh tinh DA DUOC XAC THUC, khong hoi lai mat khau nua.
+
+    Dieu kien AN TOAN bat buoc cua co che nay (ma moi tai lieu chinh
+    thuc deu canh bao ro): app phia sau KHONG DUOC phep nhan ket noi
+    truc tiep tu ben ngoai - CHI reverse proxy (chay trong mang noi bo)
+    moi duoc phep cham toi app. Neu dieu kien nay bi vi pham (app van
+    lo cong ra Internet song song voi proxy), bat ky ai cung co the tu
+    gan header nay voi gia tri tuy y de GIA MAO DANH TINH BAT KY USER
+    NAO - bao gom ca admin - ma KHONG CAN biet mat khau.
+
+    Trong lab nay, dieu kien do BI VI PHAM: xem docker-compose.yml -
+    cong cua chinh Flask (5000) VAN duoc publish ra host song song
+    voi Nginx (80), nen attacker chi can goi THANG toi Flask (bo qua
+    Nginx) kem header "X-Webauth-User: admin" la chiem duoc session
+    cua admin. Day la lo hong vuot quyen DUY NHAT con lai cua lab
+    (thay cho loi BFLA endpoint o cac ban truoc) - xem README muc
+    2b/2c de biet chi tiet + kich ban tan cong day du.
+    """
+    if current_user_id():
+        return  # da co session dang nhap binh thuong, khong can xu ly header
+    header_user = request.headers.get(TRUSTED_PROXY_AUTH_HEADER)
+    if not header_user:
+        return
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE username = ?", (header_user,)).fetchone()
+    if user is None:
+        return
+    session["user_id"] = user["id"]
+    session["username"] = user["username"]
+    # Danh dau ro session nay duoc tao qua header tin tuong (khong qua
+    # buoc nhap mat khau) - dung de cham flag khi khai thac thanh cong,
+    # phan biet voi mot session dang nhap hop phap thuc su.
+    session["via_trusted_proxy_header"] = True
+    get_or_create_cart(db, user["id"])
+
+
+@app.before_request
+def _enforce_trusted_proxy_auth():
+    try_trusted_proxy_login()
+
+
 def get_or_create_cart(db, user_id):
     cart = db.execute("SELECT * FROM carts WHERE user_id = ?", (user_id,)).fetchone()
     if cart is None:
@@ -478,6 +545,7 @@ def register():
 
     session["user_id"] = user_id
     session["username"] = username
+    session.pop("via_trusted_proxy_header", None)
     return redirect(url_for("index"))
 
 
@@ -498,6 +566,7 @@ def login():
         return render_template("login.html", error="Sai tài khoản hoặc mật khẩu."), 401
     session["user_id"] = user["id"]
     session["username"] = user["username"]
+    session.pop("via_trusted_proxy_header", None)
     get_or_create_cart(db, user["id"])
     next_url = request.args.get("next")
     if is_safe_redirect_target(next_url):
@@ -950,21 +1019,36 @@ def api_checkout():
 def api_whoami():
     if not current_user_id():
         return jsonify({"logged_in": False})
-    return jsonify({"logged_in": True, "username": session.get("username")})
+    result = {
+        "logged_in": True,
+        "username": session.get("username"),
+        "role": "admin" if is_admin() else "user",
+    }
+    # Flag cho buoc "chiem doat session admin qua header reverse-proxy
+    # gia mao" - chi cap khi session HIEN TAI duoc tao qua header tin
+    # tuong (khong phai dang nhap bang mat khau hop phap) VA username
+    # do thuc su co quyen admin trong CSDL. Chung minh day la mot lan
+    # khai thac thuc su: chiem duoc session cua admin ma khong he biet
+    # mat khau cua admin.
+    if session.get("via_trusted_proxy_header") and is_admin():
+        result["flag"] = "LAB{reverse_proxy_trusted_header_admin_takeover_pixelmart}"
+    return jsonify(result)
 
 
 # ---------------------------------------------------------------------------
 # Khu vuc quan tri (/admin/*) - CHI danh cho role = 'admin'.
 #
 # Tat ca cac trang HTML va API o day deu kiem tra quyen dung cach bang
-# admin_required_page() / require_admin() - KE CA API quan ly don hang
-# (da tung la lo hong o ban truoc, nay da duoc SUA, xem README muc 6).
-#
-# CHI RIENG API GET /api/admin/coupon (de xem ma giam gia dang hoat
-# dong) o cuoi file nay la thieu kiem tra quyen admin - day la lo hong
-# "vuot quyen" DUY NHAT con lai cua lab, duoc thiet ke de noi tiep voi
-# race condition o /api/cart/apply-coupon thanh MOT chuoi tan cong hoan
-# chinh. Xem README muc 2b/2c.
+# admin_required_page() / require_admin() - KHONG CON ngoai le nao (ca
+# API quan ly don hang va API xem ma giam gia deu duoc bao ve dung
+# cach). Lo hong vuot quyen DUY NHAT cua lab khong con nam o mot
+# endpoint thieu kiem tra nua, ma nam o tang XAC THUC: ham
+# try_trusted_proxy_login() (dinh nghia o tren, chay qua before_request)
+# co the gan mot SESSION GIA MAO cho bat ky username nao chi tu mot
+# header HTTP, neu attacker goi duoc THANG toi Flask (bo qua Nginx) -
+# xem README muc 2b/2c. Moi route /api/admin/* ben duoi day van kiem
+# tra dung is_admin()/require_admin() nhu thuong - chung khong he co
+# loi; van de la SESSION dang goi chung co the da bi gia mao tu truoc.
 # ---------------------------------------------------------------------------
 
 @app.route("/admin")
@@ -1039,21 +1123,13 @@ def api_admin_update_order_status(order_id):
 
 @app.route("/api/admin/coupon", methods=["GET"])
 def api_admin_coupon():
-    # !!! VULN NOTE (CWE-862 - Broken Function Level Authorization) !!!
-    # Day la API DUY NHAT trong khu vuc /api/admin/* QUEN goi
-    # require_admin() - chi goi require_login() (kiem tra da dang nhap).
-    # Moi API /api/admin/* khac phia tren deu goi require_admin() dung
-    # cach; day la "mot cho sot" duy nhat, dung y de minh hoa loi BFLA
-    # that: du hau het endpoint duoc bao ve dung, chi can QUEN mot cho
-    # la toan bo "bi mat quan tri" (ma giam gia cua admin) bi lo ra cho
-    # BAT KY user da dang nhap nao - khong can la admin.
-    #
-    # Hau qua nghiem trong hon ban than no: ma giam gia lo ra o day la
-    # dau vao de khai thac tiep lo hong RACE CONDITION o
-    # /api/cart/apply-coupon (vi ma khong con la hang so cong khai
-    # "SALE20" nua) - hai lo hong duoc thiet ke noi tiep nhau thanh MOT
-    # chuoi tan cong hoan chinh. Xem README muc 2c.
-    auth = require_login()
+    # Dung cach: kiem tra quyen admin dung require_admin(), giong moi
+    # API /api/admin/* khac. Endpoint nay KHONG co loi - no chi la buoc
+    # cuoi cung attacker goi (bang session admin DA CHIEM DUOC qua lo
+    # hong header o muc 2b) de doc ma giam gia thuc su, phuc vu buoc
+    # tiep theo: race condition o /api/cart/apply-coupon (xem README
+    # muc 2c).
+    auth = require_admin()
     if auth:
         return auth
 
@@ -1062,15 +1138,7 @@ def api_admin_coupon():
     if coupon is None:
         return jsonify({"error": "no active coupon"}), 404
 
-    result = {"code": coupon["code"], "percent": coupon["percent"], "active": bool(coupon["active"])}
-
-    # Flag rieng cho buoc "vuot quyen ro ri ma giam gia" - chi cap khi
-    # nguoi goi KHONG PHAI admin (chung minh day thuc su la mot lan khai
-    # thac, khong phai hanh vi hop le cua admin).
-    if not is_admin():
-        result["flag"] = "LAB{bfla_leaked_admin_voucher_pixelmart}"
-
-    return jsonify(result)
+    return jsonify({"code": coupon["code"], "percent": coupon["percent"], "active": bool(coupon["active"])})
 
 
 @app.route("/robots.txt")

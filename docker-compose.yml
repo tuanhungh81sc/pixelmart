@@ -2,6 +2,26 @@ services:
   web:
     build: .
     container_name: pixelmart-lab
+    # !!! MISCONFIG CO CHU DICH (xem app.py: try_trusted_proxy_login) !!!
+    # Dang ly cong nay CHI nen duoc Nginx (service "proxy" ben duoi) goi
+    # toi qua mang noi bo cua docker-compose, KHONG duoc publish ra
+    # host/Internet - vi app dang tin tuong header "X-Webauth-User" voi
+    # gia dinh "chi proxy moi cham toi duoc app". Lab nay VAN publish
+    # cong 5000 ra host (giong mot loi deploy thuc te rat pho bien: them
+    # reverse proxy phia truoc nhung quen go bo port-mapping truc tiep
+    # cua service goc), nen attacker co the bo qua Nginx hoan toan va
+    # goi THANG toi day. Xem README muc 2b/2c.
     ports:
       - "5000:5000"
+    restart: unless-stopped
+
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: pixelmart-lab-proxy
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     restart: unless-stopped
