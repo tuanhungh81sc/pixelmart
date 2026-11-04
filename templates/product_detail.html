@@ -9,8 +9,18 @@
 </div>
 
 <div class="pd-grid">
-  <div class="pd-image">
-    {{ product.img }}
+  <div>
+    <div class="pd-image">
+      <img id="main-product-img" src="{{ url_for('static', filename='products/p' ~ product.id ~ '_1.jpg') }}" alt="{{ product.name }}">
+    </div>
+    <div class="pd-gallery">
+      {% for n in [1, 2, 3] %}
+      <img src="{{ url_for('static', filename='products/p' ~ product.id ~ '_' ~ n ~ '.jpg') }}"
+           class="{{ 'active' if n == 1 else '' }}"
+           onclick="document.getElementById('main-product-img').src=this.src; document.querySelectorAll('.pd-gallery img').forEach(el=>el.classList.remove('active')); this.classList.add('active');"
+           alt="{{ product.name }} - ảnh {{ n }}">
+      {% endfor %}
+    </div>
   </div>
   <div>
     <div class="cat" style="margin-bottom:6px;">{{ product.category }}</div>
@@ -48,7 +58,7 @@
 <div class="related-grid">
   {% for p in related %}
   <a href="/product/{{ p.id }}" class="related-card">
-    <div class="thumb-sm">{{ p.img }}</div>
+    <div class="thumb-sm"><img src="{{ url_for('static', filename='products/p' ~ p.id ~ '_1.jpg') }}" alt="{{ p.name }}" loading="lazy"></div>
     <div class="text-sm" style="margin-bottom:4px;">{{ p.name }}</div>
     <div class="price" style="font-size:13px;">{{ "{:,}".format(p.price) }}đ</div>
   </a>

@@ -51,6 +51,13 @@ giao hàng → Đã giao thành công).
   CSS thuần (`static/style.css`), không dùng framework/build step. Mọi
   route, tên trường form, id phần tử dùng trong JS (giỏ hàng, checkout)
   đều giữ nguyên — chỉ thay đổi giao diện, không đổi logic.
+- Mỗi sản phẩm có 3 ảnh minh hoạ phong cách studio (`static/products/
+  p<id>_1.jpg`, `_2.jpg`, `_3.jpg`) được vẽ hoàn toàn offline bằng
+  Pillow (minh hoạ vector đơn giản theo từng loại sản phẩm, không tải
+  ảnh/logo thật từ Internet) nên không có rủi ro bản quyền/thương hiệu
+  và không cần mạng khi chạy trong Docker. Trang chủ/sản phẩm liên
+  quan/giỏ hàng dùng ảnh đầu tiên làm ảnh đại diện; trang chi tiết sản
+  phẩm có gallery 3 ảnh bấm để đổi ảnh chính.
 
 > **Lưu ý về phạm vi lỗ hổng:** toàn bộ các chức năng mới (đăng ký, trang
 > cá nhân, lịch sử đơn hàng, đánh giá sản phẩm...) đều được viết an toàn
@@ -309,6 +316,9 @@ pixelmart/
 │   ├── about.html, policy.html, contact.html  # trang tĩnh (trust signal)
 │   ├── 404.html
 │   └── 500.html
+├── static/
+│   ├── style.css              # toàn bộ theme giao diện (thuần CSS)
+│   └── products/               # ảnh sản phẩm sinh offline (p<id>_1/2/3.jpg)
 └── exploit/
     └── race_coupon.py        # script khai thác tự động (không đổi,
                                  # vẫn gọi đúng các API endpoint cũ)

@@ -39,7 +39,7 @@
 <div class="product-grid">
   {% for p in products %}
   <a href="/product/{{ p.id }}" class="product-card">
-    <div class="thumb">{{ p.img }}</div>
+    <div class="thumb"><img src="{{ url_for('static', filename='products/p' ~ p.id ~ '_1.jpg') }}" alt="{{ p.name }}" loading="lazy"></div>
     <div class="cat">{{ p.category }}</div>
     <h3 class="name">{{ p.name }}</h3>
     <div class="price-row">

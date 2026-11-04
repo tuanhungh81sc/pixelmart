@@ -86,7 +86,7 @@ async function refreshCart() {
     ? data.items.map(i => `
         <div class="cart-item-row">
           <div style="display:flex; gap:12px; align-items:center;">
-            <span style="font-size:26px;">${i.img || '📦'}</span>
+            <div class="cart-item-thumb"><img src="/static/products/p${i.product_id}_1.jpg" alt=""></div>
             <div>
               <div style="font-size:14px;">${i.name}</div>
               <div style="font-size:12px; color:var(--text-muted);">${i.unit_price.toLocaleString()}đ x ${i.quantity}</div>
