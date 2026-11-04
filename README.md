@@ -112,8 +112,12 @@ docker compose up --build -d   # chạy lại, dữ liệu tự reset sạch
 ### Bước 1 — Xác nhận hành vi "bình thường" (chặn áp mã 2 lần)
 
 1. Đăng nhập, thêm 1 sản phẩm bất kỳ vào giỏ.
-2. Mở tab giỏ hàng, nhập mã `SALE20`, bấm **Áp dụng** → thấy giảm 20%.
-3. Bấm **Áp dụng** lần nữa → ứng dụng báo lỗi `coupon already applied`.
+2. Mở trang giỏ hàng `/cart`, bấm nút **🎟️ Chọn mã giảm giá** để mở danh
+   sách voucher, bấm **Dùng mã** ở dòng `SALE20` → thấy giảm 20%.
+   (Hai mã `FREESHIP50` và `WELCOME10` chỉ hiển thị trang trí, không
+   hoạt động — không phải mục tiêu khai thác của lab này.)
+3. Mở lại danh sách, bấm **Dùng mã** ở `SALE20` lần nữa → ứng dụng báo
+   lỗi `coupon already applied`.
 
 → Điều này cho thấy có một cơ chế kiểm tra "đã dùng chưa", và nó **hoạt
 động đúng khi gửi tuần tự**. Đây chính là điểm khiến scanner tự động bỏ

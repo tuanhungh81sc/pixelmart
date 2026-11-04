@@ -10,11 +10,39 @@
   </div>
 
   <div style="background:#1a1d24; border-radius:10px; padding:18px; align-self:start;">
-    <div style="display:flex; gap:6px; margin-bottom:16px;">
-      <input type="text" id="coupon-code" placeholder="Nhập mã giảm giá" value="{{ coupon_code_hint }}"
-             style="flex:1; padding:8px; border-radius:6px; border:1px solid #333; background:#0f1115; color:#fff;">
-      <button onclick="applyCoupon()" style="padding:8px 12px; border:none; border-radius:6px; background:#4f7cff; color:#fff; cursor:pointer;">Áp dụng</button>
+    <button id="coupon-toggle-btn" onclick="toggleCouponList()"
+            style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:10px 12px; margin-bottom:12px; border:1px dashed #4f7cff; border-radius:8px; background:#141722; color:#4f7cff; font-weight:bold; cursor:pointer; font-size:13px;">
+      <span>🎟️ Chọn mã giảm giá</span>
+      <span id="coupon-toggle-arrow">▾</span>
+    </button>
+
+    <div id="coupon-list" style="display:none; margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; background:#141722; border:1px solid #2a2e38; border-radius:8px; padding:12px; margin-bottom:8px;">
+        <div>
+          <div style="font-weight:bold; font-size:13px; color:#fff;">SALE20</div>
+          <div style="font-size:12px; color:#999;">Giảm 20% cho đơn hàng</div>
+        </div>
+        <button onclick="applyCoupon('SALE20')"
+                style="padding:7px 14px; border:none; border-radius:6px; background:#4f7cff; color:#fff; font-size:12px; font-weight:bold; cursor:pointer; white-space:nowrap;">
+          Dùng mã
+        </button>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; background:#141722; border:1px solid #2a2e38; border-radius:8px; padding:12px; margin-bottom:8px; opacity:.55;">
+        <div>
+          <div style="font-weight:bold; font-size:13px; color:#fff;">FREESHIP50</div>
+          <div style="font-size:12px; color:#999;">Miễn phí vận chuyển</div>
+        </div>
+        <span style="font-size:11px; color:#777; white-space:nowrap;">Sắp ra mắt</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; background:#141722; border:1px solid #2a2e38; border-radius:8px; padding:12px; opacity:.55;">
+        <div>
+          <div style="font-weight:bold; font-size:13px; color:#fff;">WELCOME10</div>
+          <div style="font-size:12px; color:#999;">Giảm 10% cho khách mới</div>
+        </div>
+        <span style="font-size:11px; color:#777; white-space:nowrap;">Hết lượt dùng</span>
+      </div>
     </div>
+
     <div style="font-size:13px;">
       <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Tạm tính</span><span id="subtotal">0đ</span></div>
       <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Giảm giá (<span id="coupon-uses">0</span> lần)</span><span id="discount">0đ</span></div>
@@ -69,8 +97,15 @@ async function removeItem(productId) {
   refreshCart();
 }
 
-async function applyCoupon() {
-  const code = document.getElementById('coupon-code').value;
+function toggleCouponList() {
+  const list = document.getElementById('coupon-list');
+  const arrow = document.getElementById('coupon-toggle-arrow');
+  const isOpen = list.style.display !== 'none';
+  list.style.display = isOpen ? 'none' : 'block';
+  arrow.innerText = isOpen ? '▾' : '▴';
+}
+
+async function applyCoupon(code) {
   const res = await fetch('/api/cart/apply-coupon', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},

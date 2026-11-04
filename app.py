@@ -392,7 +392,7 @@ def add_review(product_id):
 @app.route("/cart")
 @login_required_page
 def cart_page():
-    return render_template("cart.html", coupon_code_hint=COUPON_CODE)
+    return render_template("cart.html")
 
 
 @app.route("/profile", methods=["GET", "POST"])
