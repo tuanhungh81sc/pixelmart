@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}PixelMart{% endblock %}</title>
+<meta name="description" content="{% block meta_description %}PixelMart - Cửa hàng công nghệ trực tuyến. Laptop, bàn phím, tai nghe, màn hình giá tốt, giao hàng nhanh.{% endblock %}">
+<meta name="robots" content="noindex, nofollow">
+<meta property="og:site_name" content="PixelMart">
+<meta property="og:title" content="{% block og_title %}PixelMart{% endblock %}">
+<meta property="og:description" content="{% block og_description %}Cửa hàng công nghệ trực tuyến PixelMart{% endblock %}">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛒</text></svg>">
 <style>
   * { box-sizing: border-box; }
   body { font-family: Arial, sans-serif; background:#0f1115; color:#e6e6e6; margin:0; }
@@ -20,8 +27,19 @@
   .flash-msg.success { background:#163a26; color:#7ee6a4; }
   .flash-msg.error { background:#3a1620; color:#ff9eae; }
   footer { text-align:center; color:#555; font-size:12px; padding:30px 0; }
+  footer .footer-links { margin-bottom:10px; display:flex; gap:18px; justify-content:center; flex-wrap:wrap; }
+  footer .footer-links a { color:#888; text-decoration:none; }
+  footer .footer-links a:hover { color:#ccc; }
   input, select, textarea { font-family: inherit; }
   button { font-family: inherit; }
+
+  @media (max-width: 720px) {
+    header { padding:12px 16px; justify-content:center; }
+    header .brand { font-size:18px; }
+    nav { font-size:13px; gap:12px; justify-content:center; }
+    main { margin:16px auto; padding:0 12px; }
+    h1 { font-size:19px !important; }
+  }
 </style>
 {% block extra_head %}{% endblock %}
 </head>
@@ -56,6 +74,13 @@
 {% block content %}{% endblock %}
 </main>
 
-<footer>PixelMart Lab — chỉ dùng cho mục đích học tập bảo mật web, không chứa dữ liệu thật.</footer>
+<footer>
+  <div class="footer-links">
+    <a href="/about">Giới thiệu</a>
+    <a href="/policy">Chính sách đổi trả & bảo hành</a>
+    <a href="/contact">Liên hệ</a>
+  </div>
+  PixelMart Lab — chỉ dùng cho mục đích học tập bảo mật web, không chứa dữ liệu thật.
+</footer>
 </body>
 </html>

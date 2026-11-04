@@ -21,6 +21,7 @@ import os
 import sqlite3
 import time
 import secrets
+from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, g, request, jsonify, render_template, session, redirect, url_for, flash
 
@@ -35,31 +36,39 @@ COUPON_PERCENT = 20  # giam 20% moi lan ap dung thanh cong
 CATEGORIES = ["Bàn phím", "Chuột", "Tai nghe", "Màn hình", "Loa", "Webcam", "Phụ kiện"]
 
 SEED_PRODUCTS = [
-    # (name, category, price, description, img_emoji, stock)
+    # (name, category, price, description, img_emoji, stock, sold_count)
     ("Bàn phím cơ PixelMart K1", "Bàn phím", 1200000,
      "Bàn phím cơ 87 phím, switch Blue, keycap PBT, đèn RGB 16 triệu màu. "
-     "Phù hợp cho cả gaming lẫn làm việc văn phòng.", "⌨️", 25),
+     "Phù hợp cho cả gaming lẫn làm việc văn phòng.", "⌨️", 25, 312),
     ("Bàn phím cơ PixelMart K1 Pro", "Bàn phím", 1850000,
      "Phiên bản nâng cấp của K1 với kết nối không dây 2.4GHz + Bluetooth, "
-     "pin 4000mAh dùng được 2 tháng.", "⌨️", 12),
+     "pin 4000mAh dùng được 2 tháng.", "⌨️", 12, 87),
     ("Chuột không dây PixelMart M2", "Chuột", 450000,
      "Chuột quang không dây, cảm biến 16000 DPI, pin AA dùng 18 tháng, "
-     "thiết kế công thái học cho tay phải.", "🖱️", 40),
+     "thiết kế công thái học cho tay phải.", "🖱️", 40, 541),
     ("Chuột gaming PixelMart M2 Lite", "Chuột", 690000,
-     "Chuột gaming có dây, 6 nút lập trình, cảm biến quang học chính xác cao.", "🖱️", 30),
+     "Chuột gaming có dây, 6 nút lập trình, cảm biến quang học chính xác cao.", "🖱️", 30, 203),
     ("Tai nghe PixelMart H3", "Tai nghe", 890000,
-     "Tai nghe chụp tai chống ồn chủ động, pin 30 giờ, driver 40mm âm bass sâu.", "🎧", 18),
+     "Tai nghe chụp tai chống ồn chủ động, pin 30 giờ, driver 40mm âm bass sâu.", "🎧", 18, 156),
     ("Tai nghe nhét tai PixelMart H3 Air", "Tai nghe", 590000,
-     "Tai nghe true wireless, chống nước IPX5, kết nối Bluetooth 5.3.", "🎧", 22),
+     "Tai nghe true wireless, chống nước IPX5, kết nối Bluetooth 5.3.", "🎧", 22, 278),
     ("Webcam PixelMart C4", "Webcam", 650000,
-     "Webcam Full HD 1080p 60fps, tự động lấy nét, mic khử tiếng ồn tích hợp.", "📷", 15),
+     "Webcam Full HD 1080p 60fps, tự động lấy nét, mic khử tiếng ồn tích hợp.", "📷", 15, 94),
     ("Màn hình PixelMart V5 27inch", "Màn hình", 4500000,
-     "Màn hình IPS 27 inch, 144Hz, 1ms, chuẩn màu 99% sRGB, hỗ trợ FreeSync.", "🖥️", 8),
+     "Màn hình IPS 27 inch, 144Hz, 1ms, chuẩn màu 99% sRGB, hỗ trợ FreeSync.", "🖥️", 8, 41),
     ("Loa PixelMart S6", "Loa", 980000,
-     "Loa bluetooth 2.1, công suất 30W, bass mạnh, pin 12 giờ, chống nước IPX6.", "🔊", 20),
+     "Loa bluetooth 2.1, công suất 30W, bass mạnh, pin 12 giờ, chống nước IPX6.", "🔊", 20, 132),
     ("Lót chuột PixelMart X1 XL", "Phụ kiện", 180000,
-     "Lót chuột cỡ lớn 900x400mm, bề mặt vải dệt chống trượt, viền may cẩn thận.", "🟫", 60),
+     "Lót chuột cỡ lớn 900x400mm, bề mặt vải dệt chống trượt, viền may cẩn thận.", "🟫", 60, 405),
 ]
+
+FREE_SHIPPING_THRESHOLD = 300000
+FLAT_SHIPPING_FEE = 30000
+
+PAYMENT_METHODS = {
+    "cod": "Thanh toán khi nhận hàng (COD)",
+    "bank_transfer": "Chuyển khoản ngân hàng",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +112,8 @@ def init_db():
             price INTEGER NOT NULL,
             description TEXT NOT NULL DEFAULT '',
             img TEXT NOT NULL DEFAULT '📦',
-            stock INTEGER NOT NULL DEFAULT 0
+            stock INTEGER NOT NULL DEFAULT 0,
+            sold_count INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE TABLE carts (
@@ -126,8 +136,10 @@ def init_db():
             user_id INTEGER NOT NULL REFERENCES users(id),
             subtotal INTEGER NOT NULL,
             discount INTEGER NOT NULL,
+            shipping_fee INTEGER NOT NULL DEFAULT 0,
             final_price INTEGER NOT NULL,
             coupon_uses INTEGER NOT NULL DEFAULT 0,
+            payment_method TEXT NOT NULL DEFAULT 'cod',
             shipping_address TEXT NOT NULL DEFAULT '',
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
@@ -151,11 +163,11 @@ def init_db():
         );
     """)
 
-    for name, category, price, desc, img, stock in SEED_PRODUCTS:
+    for name, category, price, desc, img, stock, sold_count in SEED_PRODUCTS:
         conn.execute(
-            "INSERT INTO products (name, category, price, description, img, stock) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (name, category, price, desc, img, stock),
+            "INSERT INTO products (name, category, price, description, img, stock, sold_count) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (name, category, price, desc, img, stock, sold_count),
         )
 
     # Tai khoan demo
@@ -212,6 +224,40 @@ def calc_cart_subtotal_and_items(db, cart_id):
             "line_total": line_total,
         })
     return subtotal, items
+
+
+def calc_shipping_fee(price_after_discount):
+    """Phí ship tinh server-side (khong bao gio tin gia tri tu client)."""
+    if price_after_discount >= FREE_SHIPPING_THRESHOLD:
+        return 0
+    return FLAT_SHIPPING_FEE
+
+
+ORDER_STATUS_STEPS = [
+    (0, "Đang xác nhận đơn hàng", "#e0a847"),
+    (60, "Đang đóng gói", "#4f7cff"),
+    (300, "Đang giao hàng", "#2bb3c0"),
+    (900, "Đã giao thành công", "#2fbf71"),
+]
+
+
+def compute_order_status(created_at_str):
+    """
+    Trang thai don hang la gia lap cho muc dich minh hoa (khong co don
+    vi van chuyen that), tinh dua tren thoi gian da troi qua ke tu luc
+    tao don, de don "gia" di qua cac buoc giong mot don hang that.
+    """
+    try:
+        created = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return ORDER_STATUS_STEPS[0][1], ORDER_STATUS_STEPS[0][2]
+
+    elapsed = (datetime.now(timezone.utc) - created).total_seconds()
+    label, color = ORDER_STATUS_STEPS[0][1], ORDER_STATUS_STEPS[0][2]
+    for threshold, step_label, step_color in ORDER_STATUS_STEPS:
+        if elapsed >= threshold:
+            label, color = step_label, step_color
+    return label, color
 
 
 def cart_item_count(db, user_id):
@@ -313,26 +359,43 @@ def logout():
 # Shop pages
 # ---------------------------------------------------------------------------
 
+PRODUCTS_PER_PAGE = 6
+
+
 @app.route("/")
 def index():
     db = get_db()
     q = (request.args.get("q") or "").strip()
     category = (request.args.get("category") or "").strip()
+    try:
+        page = max(int(request.args.get("page", 1)), 1)
+    except ValueError:
+        page = 1
 
-    sql = "SELECT * FROM products WHERE 1=1"
+    where_sql = "WHERE 1=1"
     params = []
     if q:
-        sql += " AND name LIKE ?"
+        where_sql += " AND name LIKE ?"
         params.append(f"%{q}%")
     if category:
-        sql += " AND category = ?"
+        where_sql += " AND category = ?"
         params.append(category)
-    sql += " ORDER BY id"
 
-    products = db.execute(sql, params).fetchall()
+    total = db.execute(f"SELECT COUNT(*) AS c FROM products {where_sql}", params).fetchone()["c"]
+    total_pages = max((total + PRODUCTS_PER_PAGE - 1) // PRODUCTS_PER_PAGE, 1)
+    page = min(page, total_pages)
+    offset = (page - 1) * PRODUCTS_PER_PAGE
+
+    products = db.execute(
+        f"SELECT * FROM products {where_sql} ORDER BY id LIMIT ? OFFSET ?",
+        params + [PRODUCTS_PER_PAGE, offset],
+    ).fetchall()
+
     return render_template(
         "home.html", products=products, categories=CATEGORIES,
         q=q, selected_category=category,
+        page=page, total_pages=total_pages,
+        free_shipping_threshold=FREE_SHIPPING_THRESHOLD,
     )
 
 
@@ -343,13 +406,29 @@ def product_detail(product_id):
     if product is None:
         return render_template("404.html"), 404
 
-    reviews = db.execute(
+    review_rows = db.execute(
         "SELECT * FROM reviews WHERE product_id = ? ORDER BY created_at DESC",
         (product_id,),
     ).fetchall()
     avg_rating = None
-    if reviews:
-        avg_rating = round(sum(r["rating"] for r in reviews) / len(reviews), 1)
+    if review_rows:
+        avg_rating = round(sum(r["rating"] for r in review_rows) / len(review_rows), 1)
+
+    # Lam giau du lieu review voi avatar (chu cai dau + mau nen) de hien
+    # thi dep hon, tinh server-side de template chi can render.
+    avatar_palette = ["#4f7cff", "#2fbf71", "#e0a847", "#e05a7a", "#7a5ae0", "#2bb3c0"]
+    reviews = []
+    for r in review_rows:
+        username = r["username"] or "?"
+        color_idx = sum(ord(c) for c in username) % len(avatar_palette)
+        reviews.append({
+            "username": username,
+            "rating": r["rating"],
+            "comment": r["comment"],
+            "created_at": r["created_at"],
+            "initial": username[0].upper(),
+            "avatar_color": avatar_palette[color_idx],
+        })
 
     related = db.execute(
         "SELECT * FROM products WHERE category = ? AND id != ? LIMIT 4",
@@ -359,6 +438,7 @@ def product_detail(product_id):
     return render_template(
         "product_detail.html", product=product, reviews=reviews,
         avg_rating=avg_rating, related=related,
+        free_shipping_threshold=FREE_SHIPPING_THRESHOLD,
     )
 
 
@@ -450,10 +530,14 @@ def change_password():
 def order_history():
     db = get_db()
     # Chi lay don hang CUA CHINH user dang dang nhap (ownership check dung cach)
-    orders = db.execute(
+    order_rows = db.execute(
         "SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC",
         (current_user_id(),),
     ).fetchall()
+    orders = []
+    for row in order_rows:
+        status, status_color = compute_order_status(row["created_at"])
+        orders.append({**dict(row), "status": status, "status_color": status_color})
     return render_template("orders.html", orders=orders)
 
 
@@ -461,10 +545,13 @@ def order_history():
 @login_required_page
 def order_detail(order_id):
     db = get_db()
-    order = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    order_row = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
     # Kiem tra quyen so huu: chi chu don hang moi xem duoc (tranh IDOR)
-    if order is None or order["user_id"] != current_user_id():
+    if order_row is None or order_row["user_id"] != current_user_id():
         return render_template("404.html"), 404
+    status, status_color = compute_order_status(order_row["created_at"])
+    order = {**dict(order_row), "status": status, "status_color": status_color,
+              "payment_method_label": PAYMENT_METHODS.get(order_row["payment_method"], order_row["payment_method"])}
     items = db.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
     return render_template("order_detail.html", order=order, items=items)
 
@@ -488,13 +575,17 @@ def api_get_cart():
     cart = get_or_create_cart(db, current_user_id())
     subtotal, items = calc_cart_subtotal_and_items(db, cart["id"])
     discount = subtotal * COUPON_PERCENT // 100 * cart["coupon_uses"]
-    final_price = max(subtotal - discount, 0)
+    price_after_discount = max(subtotal - discount, 0)
+    shipping_fee = calc_shipping_fee(price_after_discount) if items else 0
+    final_price = price_after_discount + shipping_fee
     return jsonify({
         "items": items,
         "subtotal": subtotal,
         "coupon_applied": bool(cart["coupon_applied"]),
         "coupon_uses": cart["coupon_uses"],
         "discount": discount,
+        "shipping_fee": shipping_fee,
+        "free_shipping_threshold": FREE_SHIPPING_THRESHOLD,
         "final_price": final_price,
     })
 
@@ -629,21 +720,36 @@ def api_checkout():
     if subtotal == 0 or not items:
         return jsonify({"error": "cart is empty"}), 400
 
+    data = request.get_json(force=True, silent=True) or {}
+    payment_method = data.get("payment_method", "cod")
+    if payment_method not in PAYMENT_METHODS:
+        payment_method = "cod"
+
     discount = subtotal * COUPON_PERCENT // 100 * cart["coupon_uses"]
-    final_price = max(subtotal - discount, 0)
+    price_after_discount = max(subtotal - discount, 0)
+    # Phi ship luon duoc tinh lai o server dua tren gia sau giam, khong
+    # bao gio nhan gia tri shipping_fee tu client (tranh them 1 vector
+    # thao tung gia ngoai y muon).
+    shipping_fee = calc_shipping_fee(price_after_discount)
+    final_price = price_after_discount + shipping_fee
 
     user = db.execute("SELECT address FROM users WHERE id = ?", (user_id,)).fetchone()
 
     cur = db.execute(
-        "INSERT INTO orders (user_id, subtotal, discount, final_price, coupon_uses, shipping_address) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
-        (user_id, subtotal, discount, final_price, cart["coupon_uses"], user["address"] or ""),
+        "INSERT INTO orders (user_id, subtotal, discount, shipping_fee, final_price, "
+        "coupon_uses, payment_method, shipping_address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (user_id, subtotal, discount, shipping_fee, final_price,
+         cart["coupon_uses"], payment_method, user["address"] or ""),
     )
     order_id = cur.lastrowid
     for item in items:
         db.execute(
             "INSERT INTO order_items (order_id, product_name, unit_price, quantity) VALUES (?, ?, ?, ?)",
             (order_id, item["name"], item["unit_price"], item["quantity"]),
+        )
+        db.execute(
+            "UPDATE products SET sold_count = sold_count + ? WHERE id = ?",
+            (item["quantity"], item["product_id"]),
         )
 
     # reset gio hang sau khi dat hang
@@ -655,16 +761,21 @@ def api_checkout():
     db.commit()
 
     flag = None
-    if final_price <= subtotal * 10 // 100 and cart["coupon_uses"] >= 3:
+    if price_after_discount <= subtotal * 10 // 100 and cart["coupon_uses"] >= 3:
         flag = "LAB{race_cond1tion_t0ctou_coupon_stack_pixelmart}"
+
+    user_row = db.execute("SELECT email FROM users WHERE id = ?", (user_id,)).fetchone()
 
     return jsonify({
         "ok": True,
         "order_id": order_id,
         "subtotal": subtotal,
         "discount": discount,
+        "shipping_fee": shipping_fee,
         "final_price": final_price,
         "coupon_uses": cart["coupon_uses"],
+        "payment_method": PAYMENT_METHODS.get(payment_method, payment_method),
+        "confirmation_email": user_row["email"] if user_row else None,
         "flag": flag,
     })
 
@@ -674,6 +785,45 @@ def api_whoami():
     if not current_user_id():
         return jsonify({"logged_in": False})
     return jsonify({"logged_in": True, "username": session.get("username")})
+
+
+# ---------------------------------------------------------------------------
+# Trang tinh (gioi thieu, chinh sach, lien he)
+# ---------------------------------------------------------------------------
+
+@app.route("/about")
+def about():
+    return render_template("about.html")
+
+
+@app.route("/policy")
+def policy():
+    return render_template("policy.html")
+
+
+@app.route("/contact", methods=["GET", "POST"])
+def contact():
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()[:100]
+        message = (request.form.get("message") or "").strip()[:1000]
+        if not name or not message:
+            flash("Vui lòng điền đầy đủ họ tên và nội dung.", "error")
+            return redirect(url_for("contact"))
+        # Day la form demo: khong luu DB, khong gui email that, chi
+        # phan hoi cho giong trai nghiem mot website that.
+        flash(f"Cảm ơn {name}, chúng tôi đã nhận được tin nhắn và sẽ phản hồi sớm nhất!", "success")
+        return redirect(url_for("contact"))
+    return render_template("contact.html")
+
+
+@app.errorhandler(404)
+def handle_404(e):
+    return render_template("404.html"), 404
+
+
+@app.errorhandler(500)
+def handle_500(e):
+    return render_template("500.html"), 500
 
 
 if __name__ == "__main__":

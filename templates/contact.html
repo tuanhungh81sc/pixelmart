@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Liên hệ - PixelMart{% endblock %}
+{% block content %}
+<div style="max-width:480px; margin:0 auto;">
+  <h1 style="font-size:24px; margin-bottom:6px;">Liên hệ với chúng tôi</h1>
+  <p style="color:#777; font-size:13px; margin-bottom:24px;">
+    Đây là form demo — tin nhắn không được gửi đi hay lưu lại, chỉ hiển
+    thị thông báo xác nhận cho giống trải nghiệm thật.
+  </p>
+
+  <form method="POST" action="/contact" style="background:#1a1d24; border-radius:12px; padding:22px;">
+    <label style="font-size:12px; color:#999;">Họ và tên</label>
+    <input type="text" name="name" required maxlength="100"
+           style="width:100%; padding:9px; margin:6px 0 14px; border-radius:6px; border:1px solid #333; background:#0f1115; color:#fff;">
+
+    <label style="font-size:12px; color:#999;">Nội dung</label>
+    <textarea name="message" rows="4" required maxlength="1000"
+              style="width:100%; padding:9px; margin:6px 0 14px; border-radius:6px; border:1px solid #333; background:#0f1115; color:#fff; resize:vertical;"></textarea>
+
+    <button type="submit" style="width:100%; padding:10px; border:none; border-radius:6px; background:#4f7cff; color:#fff; font-weight:bold; cursor:pointer;">
+      Gửi tin nhắn
+    </button>
+  </form>
+
+  <div style="margin-top:20px; font-size:13px; color:#999; line-height:1.8;">
+    <div>📧 support@pixelmart.example</div>
+    <div>📞 1900 0000</div>
+    <div>📍 123 Đường ABC, Quận 1, TP.HCM</div>
+  </div>
+</div>
+{% endblock %}

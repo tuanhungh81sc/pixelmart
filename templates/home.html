@@ -2,6 +2,22 @@
 {% block title %}PixelMart - Linh kiện máy tính{% endblock %}
 {% block content %}
 
+<div id="promo-banner" style="position:relative; border-radius:14px; overflow:hidden; margin-bottom:28px; height:140px;">
+  <div class="promo-slide active" style="background:linear-gradient(120deg,#2a3aff,#4f7cff);">
+    <div>🎉 Giảm đến 20% cho đơn hàng đầu tiên</div>
+    <div class="promo-sub">Áp dụng mã SALE20 tại trang giỏ hàng</div>
+  </div>
+  <div class="promo-slide" style="background:linear-gradient(120deg,#0e7a4f,#2fbf71);">
+    <div>🚚 Miễn phí vận chuyển</div>
+    <div class="promo-sub">Cho đơn hàng từ {{ "{:,}".format(free_shipping_threshold) }}đ</div>
+  </div>
+  <div class="promo-slide" style="background:linear-gradient(120deg,#7a2a9a,#b347e0);">
+    <div>🛡️ Bảo hành chính hãng</div>
+    <div class="promo-sub">Lên đến 12 tháng cho mọi sản phẩm</div>
+  </div>
+  <div id="promo-dots" style="position:absolute; bottom:12px; left:50%; transform:translateX(-50%); display:flex; gap:6px;"></div>
+</div>
+
 <form method="GET" action="/" style="display:flex; gap:10px; margin-bottom:24px; flex-wrap:wrap;">
   <input type="text" name="q" value="{{ q }}" placeholder="Tìm kiếm sản phẩm..."
          style="flex:1; min-width:200px; padding:10px 14px; border-radius:8px; border:1px solid #333; background:#1a1d24; color:#fff;">
@@ -23,15 +39,63 @@
   <p style="color:#777;">Không tìm thấy sản phẩm nào phù hợp.</p>
 {% endif %}
 
-<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:18px;">
+<div class="product-grid">
   {% for p in products %}
-  <a href="/product/{{ p.id }}" style="text-decoration:none; background:#1a1d24; border-radius:12px; padding:18px; display:block; transition:transform .1s;">
+  <a href="/product/{{ p.id }}" class="product-card">
     <div style="font-size:40px; margin-bottom:10px;">{{ p.img }}</div>
     <div style="font-size:12px; color:#777; margin-bottom:4px;">{{ p.category }}</div>
     <h3 style="margin:0 0 8px 0; font-size:15px; color:#fff;">{{ p.name }}</h3>
-    <div style="color:#4f7cff; font-weight:bold;">{{ "{:,}".format(p.price) }}đ</div>
+    <div style="color:#4f7cff; font-weight:bold; margin-bottom:8px;">{{ "{:,}".format(p.price) }}đ</div>
+    <div style="font-size:11px; color:#777;">Đã bán {{ p.sold_count }}</div>
   </a>
   {% endfor %}
 </div>
+
+{% if total_pages > 1 %}
+<div style="display:flex; justify-content:center; gap:8px; margin-top:28px;">
+  {% for pg in range(1, total_pages + 1) %}
+    <a href="/?page={{ pg }}{% if q %}&q={{ q }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}"
+       style="width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:8px; text-decoration:none; font-size:13px;
+              background:{% if pg == page %}#4f7cff{% else %}#1a1d24{% endif %};
+              color:{% if pg == page %}#fff{% else %}#ccc{% endif %};">
+      {{ pg }}
+    </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<style>
+  .promo-slide { position:absolute; inset:0; display:none; flex-direction:column; justify-content:center; padding:0 32px; color:#fff; }
+  .promo-slide.active { display:flex; }
+  .promo-slide > div:first-child { font-size:20px; font-weight:bold; margin-bottom:6px; }
+  .promo-sub { font-size:13px; opacity:.9; }
+  .promo-dot { width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.4); cursor:pointer; }
+  .promo-dot.active { background:#fff; }
+  .product-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:18px; }
+  .product-card { text-decoration:none; background:#1a1d24; border-radius:12px; padding:18px; display:block; transition:transform .15s; }
+  .product-card:hover { transform:translateY(-3px); }
+</style>
+
+<script>
+(function() {
+  const slides = document.querySelectorAll('.promo-slide');
+  const dotsWrap = document.getElementById('promo-dots');
+  let current = 0;
+  slides.forEach((_, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'promo-dot' + (i === 0 ? ' active' : '');
+    dot.onclick = () => goTo(i);
+    dotsWrap.appendChild(dot);
+  });
+  function goTo(i) {
+    slides[current].classList.remove('active');
+    dotsWrap.children[current].classList.remove('active');
+    current = i;
+    slides[current].classList.add('active');
+    dotsWrap.children[current].classList.add('active');
+  }
+  setInterval(() => goTo((current + 1) % slides.length), 4000);
+})();
+</script>
 
 {% endblock %}

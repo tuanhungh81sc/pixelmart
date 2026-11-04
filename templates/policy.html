@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Chính sách - PixelMart{% endblock %}
+{% block content %}
+<div style="max-width:720px; margin:0 auto;">
+  <h1 style="font-size:24px; margin-bottom:6px;">Chính sách đổi trả & bảo hành</h1>
+  <p style="color:#777; font-size:13px; margin-bottom:28px;">Lab nội bộ — nội dung bên dưới chỉ mang tính minh hoạ.</p>
+
+  <div style="background:#1a1d24; border-radius:12px; padding:24px; margin-bottom:16px;">
+    <h2 style="font-size:15px; margin-top:0;">1. Đổi trả sản phẩm</h2>
+    <p style="color:#ccc; font-size:14px; line-height:1.7;">
+      Sản phẩm được đổi trả trong vòng 7 ngày kể từ ngày nhận hàng nếu
+      còn nguyên tem, hộp, phụ kiện đi kèm và chưa qua sử dụng. Sản
+      phẩm lỗi do nhà sản xuất được đổi mới miễn phí trong 30 ngày đầu.
+    </p>
+  </div>
+
+  <div style="background:#1a1d24; border-radius:12px; padding:24px; margin-bottom:16px;">
+    <h2 style="font-size:15px; margin-top:0;">2. Bảo hành</h2>
+    <p style="color:#ccc; font-size:14px; line-height:1.7;">
+      Thời gian bảo hành chính hãng từ 12-24 tháng tuỳ sản phẩm, tính
+      từ ngày xuất hoá đơn. Bảo hành không áp dụng với lỗi do người
+      dùng va đập, vào nước hoặc tự ý tháo máy.
+    </p>
+  </div>
+
+  <div style="background:#1a1d24; border-radius:12px; padding:24px;">
+    <h2 style="font-size:15px; margin-top:0;">3. Vận chuyển</h2>
+    <p style="color:#ccc; font-size:14px; line-height:1.7;">
+      Miễn phí vận chuyển cho đơn hàng từ {{ "{:,}".format(300000) }}đ.
+      Đơn hàng dưới mức này áp dụng phí vận chuyển cố định
+      {{ "{:,}".format(30000) }}đ trên toàn quốc.
+    </p>
+  </div>
+</div>
+{% endblock %}

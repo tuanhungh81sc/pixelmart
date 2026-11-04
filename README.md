@@ -22,17 +22,27 @@ PixelMart là một website bán linh kiện máy tính đầy đủ chức năn
 | `/register`, `/login` | Đăng ký tài khoản mới, đăng nhập |
 | `/cart` | Giỏ hàng: xem/xoá sản phẩm, áp mã giảm giá, thanh toán |
 | `/profile` | Xem/sửa thông tin cá nhân (họ tên, email, địa chỉ), đổi mật khẩu |
-| `/orders`, `/orders/<id>` | Lịch sử đơn hàng và chi tiết từng đơn (chỉ xem được đơn của chính mình) |
+| `/orders`, `/orders/<id>` | Lịch sử đơn hàng (có trạng thái đơn mô phỏng) và chi tiết từng đơn (chỉ xem được đơn của chính mình) |
+| `/about`, `/policy`, `/contact` | Trang giới thiệu, chính sách đổi trả/bảo hành, liên hệ (chỉ là nội dung tĩnh để tăng độ thật) |
 
-Luồng mua hàng: đăng ký/đăng nhập → duyệt/tìm sản phẩm → thêm vào giỏ →
-áp mã giảm giá `SALE20` (giảm 20%, **chỉ được áp dụng 1 lần** cho mỗi
-giỏ hàng) → thanh toán → xem lại trong lịch sử đơn hàng.
+Luồng mua hàng: đăng ký/đăng nhập → duyệt/tìm sản phẩm (có lọc trang,
+tìm kiếm, bộ lọc danh mục) → thêm vào giỏ → chọn phương thức thanh toán
+(COD / chuyển khoản) → áp mã giảm giá `SALE20` (giảm 20%, **chỉ được áp
+dụng 1 lần** cho mỗi giỏ hàng) → thanh toán (có tính phí vận chuyển,
+miễn phí nếu đơn ≥ 300.000đ) → xem lại trong lịch sử đơn hàng (trạng
+thái đơn thay đổi theo thời gian: Đang xác nhận → Đang đóng gói → Đang
+giao hàng → Đã giao thành công).
 
 - Backend: Python Flask + SQLite, chạy trong container Docker, tự reset
   dữ liệu mỗi lần container khởi động.
 - Mật khẩu được hash (werkzeug), có 10 sản phẩm mẫu thuộc 7 danh mục.
 - Tài khoản demo: `tester` / `Password123!` (bạn cũng có thể tự đăng ký
   tài khoản mới qua `/register`).
+- Giao diện có banner khuyến mãi tự động chạy, khung xương (skeleton)
+  khi tải giỏ hàng, huy hiệu niềm tin (miễn phí ship/bảo hành/đổi trả),
+  số lượng đã bán trên mỗi sản phẩm, avatar màu cho người đánh giá,
+  trang 404/500 tuỳ biến, SEO meta tag cơ bản, favicon, và bố cục tự co
+  giãn trên di động (responsive).
 
 > **Lưu ý về phạm vi lỗ hổng:** toàn bộ các chức năng mới (đăng ký, trang
 > cá nhân, lịch sử đơn hàng, đánh giá sản phẩm...) đều được viết an toàn
@@ -286,9 +296,11 @@ pixelmart/
 │   ├── product_detail.html    # chi tiết sản phẩm + đánh giá
 │   ├── cart.html               # giỏ hàng + áp mã + thanh toán
 │   ├── profile.html            # thông tin cá nhân + đổi mật khẩu
-│   ├── orders.html             # danh sách đơn hàng
-│   ├── order_detail.html       # chi tiết 1 đơn hàng
-│   └── 404.html
+│   ├── orders.html             # danh sách đơn hàng (có trạng thái)
+│   ├── order_detail.html       # chi tiết 1 đơn hàng (phí ship, thanh toán, trạng thái)
+│   ├── about.html, policy.html, contact.html  # trang tĩnh (trust signal)
+│   ├── 404.html
+│   └── 500.html
 └── exploit/
     └── race_coupon.py        # script khai thác tự động (không đổi,
                                  # vẫn gọi đúng các API endpoint cũ)

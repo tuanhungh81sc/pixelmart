@@ -1,12 +1,22 @@
 {% extends "base.html" %}
 {% block title %}{{ product.name }} - PixelMart{% endblock %}
+{% block meta_description %}{{ product.name }} - {{ product.category }} - {{ "{:,}".format(product.price) }}đ tại PixelMart{% endblock %}
+{% block og_title %}{{ product.name }} - PixelMart{% endblock %}
+{% block extra_head %}
+<style>
+  .pd-grid { display:grid; grid-template-columns:1fr 1.4fr; gap:36px; margin-bottom:40px; }
+  @media (max-width: 720px) {
+    .pd-grid { grid-template-columns:1fr; }
+  }
+</style>
+{% endblock %}
 {% block content %}
 
 <div style="margin-bottom:16px; font-size:13px; color:#777;">
   <a href="/" style="color:#777;">Sản phẩm</a> / <a href="/?category={{ product.category }}" style="color:#777;">{{ product.category }}</a> / {{ product.name }}
 </div>
 
-<div style="display:grid; grid-template-columns:1fr 1.4fr; gap:36px; margin-bottom:40px;">
+<div class="pd-grid">
   <div style="background:#1a1d24; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:120px; min-height:280px;">
     {{ product.img }}
   </div>
@@ -20,7 +30,19 @@
     {% endif %}
     <div style="font-size:26px; color:#4f7cff; font-weight:bold; margin-bottom:16px;">{{ "{:,}".format(product.price) }}đ</div>
     <p style="color:#ccc; line-height:1.6; margin-bottom:20px;">{{ product.description }}</p>
-    <div style="font-size:13px; color:#999; margin-bottom:20px;">Còn lại: {{ product.stock }} sản phẩm</div>
+    <div style="font-size:13px; color:#999; margin-bottom:16px;">Còn lại: {{ product.stock }} sản phẩm · Đã bán {{ product.sold_count }}</div>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
+      <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:#ccc; background:#141722; padding:7px 12px; border-radius:20px;">
+        🚚 Miễn phí ship từ {{ "{:,}".format(free_shipping_threshold) }}đ
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:#ccc; background:#141722; padding:7px 12px; border-radius:20px;">
+        🛡️ Bảo hành 12 tháng
+      </div>
+      <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:#ccc; background:#141722; padding:7px 12px; border-radius:20px;">
+        ↩️ Đổi trả trong 7 ngày
+      </div>
+    </div>
 
     <div style="display:flex; gap:10px; align-items:center;">
       <input type="number" id="qty" value="1" min="1" max="20"
@@ -69,12 +91,17 @@
 
 <div style="display:flex; flex-direction:column; gap:12px;">
   {% for r in reviews %}
-  <div style="background:#1a1d24; padding:14px 16px; border-radius:10px;">
-    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-      <span style="font-weight:bold; font-size:13px;">{{ r.username }}</span>
-      <span style="color:#f5c518; font-size:13px;">{{ "★" * r.rating }}{{ "☆" * (5 - r.rating) }}</span>
+  <div style="background:#1a1d24; padding:14px 16px; border-radius:10px; display:flex; gap:12px;">
+    <div style="flex-shrink:0; width:34px; height:34px; border-radius:50%; background:{{ r.avatar_color }}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">
+      {{ r.initial }}
     </div>
-    {% if r.comment %}<div style="color:#ccc; font-size:13px;">{{ r.comment }}</div>{% endif %}
+    <div style="flex:1;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+        <span style="font-weight:bold; font-size:13px;">{{ r.username }}</span>
+        <span style="color:#f5c518; font-size:13px;">{{ "★" * r.rating }}{{ "☆" * (5 - r.rating) }}</span>
+      </div>
+      {% if r.comment %}<div style="color:#ccc; font-size:13px;">{{ r.comment }}</div>{% endif %}
+    </div>
   </div>
   {% else %}
   <p style="color:#666; font-size:13px;">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
