@@ -1,0 +1,7 @@
+services:
+  web:
+    build: .
+    container_name: pixelmart-lab
+    ports:
+      - "5000:5000"
+    restart: unless-stopped

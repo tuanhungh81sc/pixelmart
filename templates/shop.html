@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>PixelMart</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background:#0f1115; color:#e6e6e6; margin:0; }
+  header { display:flex; justify-content:space-between; align-items:center; padding:16px 32px; background:#1a1d24; }
+  header h1 { font-size:20px; margin:0; }
+  header a { color:#aaa; text-decoration:none; font-size:13px; }
+  main { max-width:960px; margin:32px auto; padding:0 16px; display:grid; grid-template-columns:2fr 1fr; gap:24px; }
+  .products { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .card { background:#1a1d24; border-radius:10px; padding:16px; }
+  .card h3 { margin:0 0 6px 0; font-size:15px; }
+  .card .price { color:#4f7cff; font-weight:bold; margin-bottom:10px; }
+  .card button { width:100%; padding:8px; border:none; border-radius:6px; background:#2a2e38; color:#fff; cursor:pointer; }
+  .card button:hover { background:#333948; }
+  .cart { background:#1a1d24; border-radius:10px; padding:16px; align-self:start; }
+  .cart h2 { font-size:16px; margin-top:0; }
+  .cart-item { display:flex; justify-content:space-between; font-size:13px; margin-bottom:8px; color:#ccc; }
+  .coupon-row { display:flex; gap:6px; margin:16px 0; }
+  .coupon-row input { flex:1; padding:8px; border-radius:6px; border:1px solid #333; background:#0f1115; color:#fff; }
+  .coupon-row button { padding:8px 12px; border:none; border-radius:6px; background:#4f7cff; color:#fff; cursor:pointer; }
+  .totals { font-size:13px; margin-top:12px; border-top:1px solid #2a2e38; padding-top:12px; }
+  .totals .row { display:flex; justify-content:space-between; margin-bottom:6px; }
+  .totals .final { font-size:16px; font-weight:bold; color:#4f7cff; }
+  #checkout-btn { width:100%; margin-top:14px; padding:10px; border:none; border-radius:6px; background:#2fbf71; color:#06130c; font-weight:bold; cursor:pointer; }
+  #msg { font-size:12px; margin-top:10px; min-height:16px; }
+  #msg.ok { color:#2fbf71; }
+  #msg.err { color:#ff6b6b; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛒 PixelMart</h1>
+  <a href="/logout">Đăng xuất ({{ session.get('username') if session else '' }})</a>
+</header>
+<main>
+  <div class="products">
+    {% for p in products %}
+    <div class="card">
+      <h3>{{ p.name }}</h3>
+      <div class="price">{{ "{:,}".format(p.price) }}đ</div>
+      <button onclick="addToCart({{ p.id }})">Thêm vào giỏ</button>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="cart">
+    <h2>Giỏ hàng</h2>
+    <div id="cart-items"></div>
+    <div class="coupon-row">
+      <input type="text" id="coupon-code" placeholder="Nhập mã giảm giá" value="SALE20">
+      <button onclick="applyCoupon()">Áp dụng</button>
+    </div>
+    <div class="totals">
+      <div class="row"><span>Tạm tính</span><span id="subtotal">0đ</span></div>
+      <div class="row"><span>Giảm giá (<span id="coupon-uses">0</span> lần)</span><span id="discount">0đ</span></div>
+      <div class="row final"><span>Thành tiền</span><span id="final-price">0đ</span></div>
+    </div>
+    <button id="checkout-btn" onclick="checkout()">Thanh toán</button>
+    <div id="msg"></div>
+  </div>
+</main>
+
+<script>
+async function refreshCart() {
+  const res = await fetch('/api/cart');
+  const data = await res.json();
+  const itemsEl = document.getElementById('cart-items');
+  itemsEl.innerHTML = data.items.length
+    ? data.items.map(i => `<div class="cart-item"><span>${i.name} x${i.quantity}</span><span>${i.line_total.toLocaleString()}đ</span></div>`).join('')
+    : '<div class="cart-item"><span style="color:#777">Giỏ hàng trống</span></div>';
+  document.getElementById('subtotal').innerText = data.subtotal.toLocaleString() + 'đ';
+  document.getElementById('discount').innerText = data.discount.toLocaleString() + 'đ';
+  document.getElementById('coupon-uses').innerText = data.coupon_uses;
+  document.getElementById('final-price').innerText = data.final_price.toLocaleString() + 'đ';
+}
+
+async function addToCart(productId) {
+  await fetch('/api/cart/add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({product_id: productId, quantity: 1})
+  });
+  refreshCart();
+}
+
+function showMsg(text, ok) {
+  const el = document.getElementById('msg');
+  el.innerText = text;
+  el.className = ok ? 'ok' : 'err';
+}
+
+async function applyCoupon() {
+  const code = document.getElementById('coupon-code').value;
+  const res = await fetch('/api/cart/apply-coupon', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({code})
+  });
+  const data = await res.json();
+  if (res.ok) {
+    showMsg(data.message, true);
+  } else {
+    showMsg(data.error, false);
+  }
+  refreshCart();
+}
+
+async function checkout() {
+  const res = await fetch('/api/cart/checkout', { method: 'POST' });
+  const data = await res.json();
+  if (res.ok) {
+    let text = `Đặt hàng thành công! Thanh toán: ${data.final_price.toLocaleString()}đ (áp mã ${data.coupon_uses} lần)`;
+    if (data.flag) {
+      text += `  🚩 FLAG: ${data.flag}`;
+    }
+    showMsg(text, true);
+  } else {
+    showMsg(data.error, false);
+  }
+  refreshCart();
+}
+
+refreshCart();
+</script>
+</body>
+</html>
